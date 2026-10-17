@@ -3,35 +3,35 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**M0.3 is Completed** (committed locally, not pushed). Supabase dev project `xytwwudbnykackuxfeif` (Ireland) is linked, signup is off, and `.env.local` has the URL and publishable key. Next: **M0.4** 🔑 (Vercel), on the owner's instruction.
+**Milestone M0 is complete.** The branded placeholder is live at **https://ustaplan.vercel.app** (it opens on the owner's phone), Supabase dev is linked and signup is off. Next: **M1.1** 🔑 (migration `core`), on the owner's instruction.
 
 ## Last completed task
-**M0.3** 🔑: the owner created the dev project. A first attempt landed in Sydney and was deleted; the second is in **Ireland `eu-west-1`**, which the owner accepted for fake-data dev (plan **T-10**; prod stays Frankfurt). The owner ran `supabase login` and turned signup off in the dashboard. I ran `supabase link`, filled `.env.local` and verified.
+**M0.4** 🔑: the owner created Vercel project `ustaplan` (team scope `cuneyts-projects-ec980692`) and connected GitHub `main`. The first build failed because the framework preset wasn't Next.js (Vercel looked for `public/`); setting the Next.js preset fixed it. Production env vars, plain (not sensitive): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL=https://ustaplan.vercel.app`.
 
 ## Current or interrupted task
 None.
 
 ## Files changed
-`package.json`/lock (`supabase` CLI dev dep), `supabase/config.toml` + `supabase/.gitignore` (from `supabase init`; `project_id = "ustaplan"`, `enable_signup = false`; the file only describes the unused local stack, so never `config push` it), `docs/IMPLEMENTATION_PLAN.md` (T-10, §11.1, M0.3 row), `docs/setup/05_SETUP_CHECKLIST.md`, `docs/PROGRESS.md`, this file. `.env.local` is local and git-ignored.
+`docs/PROGRESS.md`, this file (no code changes in M0.4).
 
 ## Key decisions
-- Dev in Ireland (T-10). At M0.4, set the Vercel function region near it (`dub1`) and check the current Vercel docs.
-- The CLI on this Mac is logged in as the owner. `supabase link` needed no DB password prompt (it worked via the access token). `db push` may still ask for the DB password; the owner keeps it.
-- The dev project is alone in its Supabase organisation, so the Free limit of two projects per org leaves room for prod at M6.3, if prod goes into the same org.
-- Keys are read without printing secrets (only the publishable key is fetched, filtered by type).
+- Vercel Function Region = **Dublin (`dub1`)**, near the Ireland DB (set by the owner).
+- A push to `main` now **deploys to production**. Every push needs owner approval.
+- Secret env vars added later (`SUPABASE_SECRET_KEY` in M1.2 and so on) must be marked **Sensitive** in Vercel, Production only.
+- The Vercel MCP connector returns 403 for this team scope, so verify deploys by `curl` on the URL, or ask the owner.
 
 ## Tests executed
-`supabase link` OK. `GET /auth/v1/settings` → `disable_signup: true`. `POST /auth/v1/signup` → 422 `signup_disabled`. The env getters read `.env.local`. `npm run typecheck` and `lint` pass.
+`npm run build` (no env) passed before the deploy. `curl https://ustaplan.vercel.app` → 200 with `lang=tr`, title, noindex, theme-color; `/icon.svg` 200. The owner confirmed it opens on the phone.
 
 ## Known bugs and blockers
-- `npm audit`: 5 high in the dev-only ESLint chain (accepted, see M0.2).
+- `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None. Local `main` is ahead of `origin` by the M0.2 handover-note commit and the M0.3 commit; **pushing needs owner approval**.
+None. The M0.4 tracker commit is local; pushing it needs approval and **triggers a deploy**. The site's content wouldn't change.
 
 ## Exact next action
-On "start the next task", do **M0.4** 🔑: connect the Vercel project to GitHub `cuneytbozok/ustaplan` (owner, or connector with approval). Set Production env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `APP_BASE_URL` = the vercel.app URL. Set the function region near Ireland. Push with approval, which deploys. Open the URL on the phone. Run `npm run build` before the push.
+On "start the next task", do **M1.1** 🔑: `npx supabase migration new core`, then hand-write all tables, checks, `fold_tr`, search keys, `touch_updated_at`, grants, RLS, storage buckets and policies per DATA_MODEL.md. **Ask approval before `npx supabase db push`.** Then `npx supabase gen types typescript --project-id xytwwudbnykackuxfeif > src/types/database.ts`, then typecheck and lint.
 
 ## Resume commands
 ```bash
