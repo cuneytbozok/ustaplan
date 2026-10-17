@@ -49,12 +49,13 @@ async function EditJob({ params }: { params: PageProps<"/isler/[id]/duzenle">["p
 
   return (
     <>
-      <BackLink href={`/isler/${job.id}`} label={job.title} />
+      <BackLink href={`/isler/${job.id}`} />
       <PageHeader title="İşi düzenle" />
       <section className="rounded-2xl border border-border bg-surface p-4">
         <EditJobForm
           action={updateJob.bind(null, job.id)}
           customers={customers}
+          doneHref={`/isler/${job.id}`}
           initial={{
             customerId: job.customer_id,
             title: job.title,

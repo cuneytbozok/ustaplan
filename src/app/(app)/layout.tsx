@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { BottomNav, BottomNavBar } from "@/components/shell/bottom-nav";
 import { AppHeader } from "@/components/shell/app-header";
+import { NavigationMarker } from "@/components/shell/navigation-marker";
 import { NewJobFab } from "@/components/shell/new-job-fab";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { getCurrentArtisan } from "@/lib/auth";
@@ -21,6 +22,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       </main>
       <Suspense fallback={null}>
         <NewJobFab />
+        <NavigationMarker />
       </Suspense>
       <Suspense fallback={<BottomNavBar pathname={null} />}>
         <BottomNav />

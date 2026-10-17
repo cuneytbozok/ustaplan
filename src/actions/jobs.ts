@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
@@ -112,7 +112,7 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
   if (result.result === "customer_not_found") return fail("Müşteri bulunamadı.", { customer: "Müşteri bulunamadı." });
   if (result.result !== "ok" || !result.job_id) return fail("Bilgileri kontrol et.");
 
-  redirect(`/isler/${result.job_id}`);
+  redirect(`/isler/${result.job_id}`, RedirectType.replace);
 }
 
 // --- Edit (plain RLS update; jobs_log_changes writes the history) -----------
@@ -126,7 +126,7 @@ export type EditJobValues = {
   showPrice: boolean;
   privateNote: string;
 };
-export type EditJobState = (Extract<ActionResult, { ok: false }> & { values: EditJobValues }) | null;
+export type EditJobState = (ActionResult & { values: EditJobValues }) | null;
 
 const editSchema = schema.pick({ customerId: true, title: true, addressId: true, agreedPrice: true, estimatedPrice: true, showPrice: true, privateNote: true });
 
@@ -177,7 +177,9 @@ export async function updateJob(jobId: string, _previous: EditJobState, formData
     .select("id");
   if (error) return error.code === "23503" ? fail("Seçilen müşteri veya adres geçersiz.") : fail("Kaydedilemedi. Tekrar dene.");
   if (!data?.length) return fail("İş bulunamadı.");
-  redirect(`/isler/${jobId}`);
+  // The form returns to the page it came from (no extra history entry).
+  refresh();
+  return { ok: true, data: undefined, values };
 }
 
 // --- Status (change_job_status RPC: J1, J4, J5, J6) ------------------------

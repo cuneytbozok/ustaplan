@@ -24,7 +24,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default function JobPage({ params }: PageProps<"/isler/[id]">) {
   return (
     <>
-      <BackLink href="/isler" label="İşler" />
+      <BackLink href="/isler" />
       <Suspense fallback={<ListSkeleton rows={4} />}>
         <JobDetail params={params} />
       </Suspense>

@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
@@ -8,7 +8,7 @@ import { actionContext, SESSION_EXPIRED } from "@/lib/auth-action";
 import { normalizePhone } from "@/lib/domain/phone";
 
 export type CustomerFormValues = { name: string; phone: string; privateNote: string };
-export type CustomerFormState = (Extract<ActionResult, { ok: false }> & { values: CustomerFormValues }) | null;
+export type CustomerFormState = (ActionResult & { values: CustomerFormValues }) | null;
 
 const id = z.uuid();
 
@@ -46,7 +46,7 @@ export async function createCustomer(_previous: CustomerFormState, formData: For
 
   const { data, error } = await supabase.from("customers").insert(parsed.row).select("id").single();
   if (error || !data) return { ok: false, error: "Müşteri kaydedilemedi. Tekrar dene.", values };
-  redirect(`/musteriler/${data.id}`);
+  redirect(`/musteriler/${data.id}`, RedirectType.replace);
 }
 
 export async function updateCustomer(
@@ -65,7 +65,9 @@ export async function updateCustomer(
   const { data, error } = await supabase.from("customers").update(parsed.row).eq("id", customerId).select("id");
   if (error) return { ok: false, error: "Kaydedilemedi. Tekrar dene.", values };
   if (!data?.length) return { ok: false, error: "Müşteri bulunamadı.", values };
-  redirect(`/musteriler/${customerId}`);
+  // The form returns to the page it came from (no extra history entry).
+  refresh();
+  return { ok: true, data: undefined, values };
 }
 
 export async function deleteCustomer(customerId: string): Promise<ActionResult> {
@@ -79,7 +81,7 @@ export async function deleteCustomer(customerId: string): Promise<ActionResult> 
   }
   if (error) return { ok: false, error: "Silinemedi. Tekrar dene." };
   if (!data?.length) return { ok: false, error: "Müşteri bulunamadı." };
-  redirect("/musteriler");
+  redirect("/musteriler", RedirectType.replace);
 }
 
 // --- Addresses -------------------------------------------------------------

@@ -1,20 +1,25 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import type { EditJobState, EditJobValues } from "@/actions/jobs";
 import { describedBy, FormField, inputClassName } from "@/components/common/form-field";
 import { FormStatus } from "@/components/common/form-status";
+import { useGoBack } from "@/components/shell/navigation-marker";
 import { cn } from "@/lib/utils";
 import type { CustomerOption } from "./new-job-form";
 
 type Action = (previous: EditJobState, formData: FormData) => Promise<EditJobState>;
 
-/** Edit form for an existing job. Success navigates back to the job, so only errors render here. */
-export function EditJobForm({ action, customers, initial }: { action: Action; customers: CustomerOption[]; initial: EditJobValues }) {
+/** Edit form for an existing job. After a confirmed save it goes back to the job, so only errors render here. */
+export function EditJobForm({ action, customers, initial, doneHref }: { action: Action; customers: CustomerOption[]; initial: EditJobValues; doneHref: string }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const goBack = useGoBack(doneHref);
+  useEffect(() => {
+    if (state?.ok) goBack();
+  }, [state, goBack]);
   const values = state?.values ?? initial;
-  const errors = state?.fieldErrors ?? {};
+  const errors = (state && !state.ok ? state.fieldErrors : undefined) ?? {};
   const key = JSON.stringify(values);
   const [customerId, setCustomerId] = useState(values.customerId);
   const [addressId, setAddressId] = useState(values.addressId);
@@ -140,7 +145,7 @@ export function EditJobForm({ action, customers, initial }: { action: Action; cu
         />
       </FormField>
 
-      {state ? <FormStatus state={state} success="" /> : null}
+      {state && !state.ok ? <FormStatus state={state} success="" /> : null}
 
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-1 bg-background/95 px-1 pt-2 pb-1 backdrop-blur">
         <button

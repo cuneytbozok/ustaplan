@@ -1,19 +1,35 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import type { CustomerFormState, CustomerFormValues } from "@/actions/customers";
 import { describedBy, FormField, inputClassName } from "@/components/common/form-field";
 import { FormStatus } from "@/components/common/form-status";
+import { useGoBack } from "@/components/shell/navigation-marker";
 import { formatPhone } from "@/lib/domain/phone";
 import { cn } from "@/lib/utils";
 
 type Action = (previous: CustomerFormState, formData: FormData) => Promise<CustomerFormState>;
 
-/** Create/edit form. Success navigates to the customer page, so only errors render here. */
-export function CustomerForm({ action, initial, submitLabel }: { action: Action; initial?: CustomerFormValues; submitLabel: string }) {
+/** Create/edit form. Success leaves the form (create: server redirect; edit: back), so only errors render here. */
+export function CustomerForm({
+  action,
+  initial,
+  submitLabel,
+  doneHref = "/musteriler",
+}: {
+  action: Action;
+  initial?: CustomerFormValues;
+  submitLabel: string;
+  doneHref?: string;
+}) {
   const [state, formAction, pending] = useActionState(action, null);
+  const goBack = useGoBack(doneHref);
+  // Edit returns ok after the save; create redirects on the server instead.
+  useEffect(() => {
+    if (state?.ok) goBack();
+  }, [state, goBack]);
   const values = state?.values ?? initial ?? { name: "", phone: "", privateNote: "" };
-  const errors = state?.fieldErrors ?? {};
+  const errors = (state && !state.ok ? state.fieldErrors : undefined) ?? {};
   const key = JSON.stringify(values);
   const noteHint = "Sadece sen görürsün.";
   const phoneHint = "Ara ve WhatsApp düğmeleri bu numarayı kullanır.";
@@ -64,7 +80,7 @@ export function CustomerForm({ action, initial, submitLabel }: { action: Action;
         />
       </FormField>
 
-      {state ? <FormStatus state={state} success="" /> : null}
+      {state && !state.ok ? <FormStatus state={state} success="" /> : null}
 
       <button
         type="submit"

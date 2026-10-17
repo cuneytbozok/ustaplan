@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Müşteri" };
 export default function CustomerPage({ params }: PageProps<"/musteriler/[id]">) {
   return (
     <>
-      <BackLink href="/musteriler" label="Müşteriler" />
+      <BackLink href="/musteriler" />
       <Suspense fallback={<ListSkeleton rows={3} />}>
         <CustomerDetail params={params} />
       </Suspense>

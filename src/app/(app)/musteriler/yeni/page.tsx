@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Yeni müşteri" };
 export default function NewCustomerPage() {
   return (
     <>
-      <BackLink href="/musteriler" label="Müşteriler" />
+      <BackLink href="/musteriler" />
       <PageHeader title="Yeni müşteri" subtitle="Adresleri kaydettikten sonra ekleyebilirsin." />
       <section className="rounded-2xl border border-border bg-surface p-4">
         <CustomerForm action={createCustomer} submitLabel="Müşteriyi kaydet" />

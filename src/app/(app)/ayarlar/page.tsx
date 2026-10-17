@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Ayarlar" };
 export default function SettingsPage() {
   return (
     <>
-      <BackLink href="/bugun" label="Bugün" />
+      <BackLink href="/bugun" />
       <PageHeader title="Ayarlar" />
 
       <Section title="Profil">

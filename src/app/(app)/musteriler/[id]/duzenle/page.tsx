@@ -30,13 +30,14 @@ async function EditCustomer({ params }: { params: PageProps<"/musteriler/[id]/du
 
   return (
     <>
-      <BackLink href={`/musteriler/${customer.id}`} label={customer.name} />
+      <BackLink href={`/musteriler/${customer.id}`} />
       <PageHeader title="Müşteriyi düzenle" />
       <section className="rounded-2xl border border-border bg-surface p-4">
         <CustomerForm
           action={updateCustomer.bind(null, customer.id)}
           initial={{ name: customer.name, phone: customer.phone ?? "", privateNote: customer.private_note ?? "" }}
           submitLabel="Değişiklikleri kaydet"
+          doneHref={`/musteriler/${customer.id}`}
         />
       </section>
     </>

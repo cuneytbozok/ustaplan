@@ -14,7 +14,7 @@ const RECENT = 6;
 export default function NewJobPage({ searchParams }: PageProps<"/isler/yeni">) {
   return (
     <>
-      <BackLink href="/isler" label="İşler" />
+      <BackLink href="/isler" />
       <PageHeader title="Yeni iş" />
       <Suspense fallback={<ListSkeleton rows={2} />}>
         <NewJob searchParams={searchParams} />

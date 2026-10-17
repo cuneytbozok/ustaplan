@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,7 +26,7 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
     return { ok: false, error: message, email };
   }
 
-  redirect("/bugun");
+  redirect("/bugun", RedirectType.replace);
 }
 
 export async function signOut() {
@@ -34,5 +34,5 @@ export async function signOut() {
   // Only this device; other devices stay signed in. Push subscriptions are
   // removed here too once they exist (M5.6).
   await supabase.auth.signOut({ scope: "local" });
-  redirect("/giris");
+  redirect("/giris", RedirectType.replace);
 }
