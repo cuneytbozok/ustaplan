@@ -6,7 +6,7 @@ A mobile-first job and appointment app for independent tradespeople (*usta*) in 
 - **Customers** never create an account. Each job has a private link (`/t/<token>`) where the customer follows that one job, uploads photos, asks for a different date, or cancels with a reason.
 - **Pilot:** 1–2 tradespeople, free-tier infrastructure, Turkish UI, `Europe/Istanbul`, TRY.
 
-> **Status:** Planning is complete and the plan is approved (v3.1); implementation has not started. Development proceeds **one task at a time** on explicit instruction. Current state: [docs/PROGRESS.md](docs/PROGRESS.md) · how to resume: [docs/HANDOVER.md](docs/HANDOVER.md).
+> **Status:** Plan v3.1 approved; implementation is in milestone M0 (the app scaffold exists, no features yet). Development proceeds **one task at a time** on explicit instruction. Current state: [docs/PROGRESS.md](docs/PROGRESS.md) · how to resume: [docs/HANDOVER.md](docs/HANDOVER.md).
 
 ## Stack
 
@@ -38,7 +38,18 @@ Push reminders work on Android browsers and on iPhones **only when UstaPlan is a
 
 ## Local development
 
-Not available yet. M0 adds the commands and environment variables (IMPLEMENTATION_PLAN §11). Development uses plain `npm run dev` against a hosted Supabase **dev** project. There's no Docker or local database. Real pilot data lives only in a separate **prod** project created at pilot launch.
+Requires Node.js 24+. Development uses plain `npm run dev` against a hosted Supabase **dev** project (from M0.3). There's no Docker or local database. Real pilot data lives only in a separate **prod** project created at pilot launch.
+
+```bash
+npm ci
+cp .env.example .env.local   # fill in only what the current features need
+npm run dev                  # http://localhost:3000
+npm run typecheck && npm run lint
+npm test                     # Vitest, critical logic only
+npm run build
+```
+
+Environment variables are validated lazily per feature (`src/lib/env.ts`), so the build works with none set. See [.env.example](.env.example) and IMPLEMENTATION_PLAN §11.3.
 
 ## Repository
 
