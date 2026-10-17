@@ -12,10 +12,10 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M4 |
-| Active task | **M4.1** (In Progress: verified locally, waiting for deploy + iPhone HEIC check) |
-| Next task | M4.2 (after M4.1 is closed) |
+| Active task | **M4.2** (In Progress) |
+| Next task | M4.3 (after M4.2 is closed) |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` on dev |
-| Implementation tasks | 37 total · 20 completed · 17 remaining |
+| Implementation tasks | 37 total · 21 completed · 16 remaining |
 | Last updated | 2026-10-18 |
 
 ## Blockers and owner inputs
@@ -86,8 +86,8 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M4 — Media, customer links, WhatsApp, customer page · depends on M3
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M4.1 | Image preparation (HEIC/compress/EXIF) + artisan photos | In Progress | `lib/media/prepare-image.ts`: `createImageBitmap` (EXIF orientation applied), lazy `heic2any@0.0.4` (new dependency, plan §6) only when the browser can't decode HEIC, longest side ≤ 1600 px, JPEG quality 0.85→0.45 then shrink until ≤ 2 MB; canvas re-encode drops all metadata. Upload goes straight to private `job-images` with the session (`lib/supabase/browser.ts`, first browser client), path `<owner>/<job>/<media>.jpg`; then `registerPhoto` (Server Action) rebuilds the path from the session, downloads the object, checks size ≤ 2 MB and JPEG magic bytes, inserts `job_media` (private, artisan), and removes the object on any refusal. `setPhotoShared` ("Müşteriyle paylaş", artisan photos only), `deletePhoto` (soft delete, then object removal). `lib/media/photos.ts`: 1 h signed URLs. `PhotoGallery`: 3-column grid ("Paylaşıldı"/"Müşteri" badges), viewer sheet with share switch and two-step delete; on İş detayı with "Fotoğraf ekle" (multiple files), on the customer page across all their jobs with a link to each job. **Local 360 px as C:** a 10.8 MB 4032×3024 JPEG **with GPS EXIF** → stored 453 KB, 1600×1200, 0 EXIF tags, no GPS, private; a 7.6 MB **HEIC** (Chromium can't decode, `heic2any` chunk loaded lazily) → 504 KB 1600×1200 JPEG, no EXIF; share switch → "Müşteri görür" + badge, persisted; delete asks once, row soft-deleted (`deleted_by=artisan`) and object gone; customer page grid + "İş: Petek temizliği" link. security-check 105/105; typecheck, lint, build pass. Not exercised: the magic-byte refusal path (code review only; the customer upload path gets its tests in M4.5). **Remaining:** deploy + an iPhone HEIC upload from the owner's phone (done-when) (2026-10-18) |
-| M4.2 | Voice notes | Pending | |
+| M4.1 | Image preparation (HEIC/compress/EXIF) + artisan photos | Completed | `lib/media/prepare-image.ts`: `createImageBitmap` (EXIF orientation applied), lazy `heic2any@0.0.4` (new dependency, plan §6) only when the browser can't decode HEIC, longest side ≤ 1600 px, JPEG quality 0.85→0.45 then shrink until ≤ 2 MB; canvas re-encode drops all metadata. Upload goes straight to private `job-images` with the session (`lib/supabase/browser.ts`, first browser client), path `<owner>/<job>/<media>.jpg`; then `registerPhoto` (Server Action) rebuilds the path from the session, downloads the object, checks size ≤ 2 MB and JPEG magic bytes, inserts `job_media` (private, artisan), and removes the object on any refusal. `setPhotoShared` ("Müşteriyle paylaş", artisan photos only), `deletePhoto` (soft delete, then object removal). `lib/media/photos.ts`: 1 h signed URLs. `PhotoGallery`: 3-column grid ("Paylaşıldı"/"Müşteri" badges), viewer sheet with share switch and two-step delete; on İş detayı with "Fotoğraf ekle" (multiple files), on the customer page across all their jobs with a link to each job. **Local 360 px as C:** a 10.8 MB 4032×3024 JPEG **with GPS EXIF** → stored 453 KB, 1600×1200, 0 EXIF tags, no GPS, private; a 7.6 MB **HEIC** (Chromium can't decode, `heic2any` chunk loaded lazily) → 504 KB 1600×1200 JPEG, no EXIF; share switch → "Müşteri görür" + badge, persisted; delete asks once, row soft-deleted (`deleted_by=artisan`) and object gone; customer page grid + "İş: Petek temizliği" link. security-check 105/105; typecheck, lint, build pass. Not exercised: the magic-byte refusal path (code review only; the customer upload path gets its tests in M4.5). **Owner's iPhone** (`96a7b06`, pushed with approval): upload, share and delete work; the stored iPhone photo is 492 KB, 1200×1600, **no GPS**, only Safari's canvas header left (ColorSpace + pixel size, no camera/date/location) (2026-10-18) |
+| M4.2 | Voice notes | In Progress | Started 2026-10-18 |
 | M4.3 | `share-link.ts` + DTO (Vitest), `/t/[token]`, invalid page, headers, media proxy | Pending | |
 | M4.4 | Share sheet, WhatsApp message, disable/regenerate, customer contact buttons, `/gizlilik` | Pending | |
 | M4.5 | `security-check.ts` v2 (links, exposure, read-only GET, customer media) | Pending | |
@@ -138,3 +138,4 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-18 | M3.3 picker, conflicts, visit actions | `73cce70` | local 360 px J2/J3 + conflict flows; build OK; owner's phone OK |
 | 2026-10-18 | M3.4 Takvim + Geri fix | `fce794d`, `aad8d01` | local day/week + back flows; build OK; owner's phone OK |
 | 2026-10-18 | M3.5 Bugün (**M3 complete**) | `32bd86e` | local Bugün flows; milestone build OK; owner's phone OK |
+| 2026-10-18 | M4.1 artisan photos | `96a7b06` | GPS JPEG + HEIC locally; iPhone photo 492 KB without GPS |
