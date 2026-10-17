@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M3.3 is In Progress**: appointment picker, conflict card and visit actions work locally. Remaining: push (owner approval) + phone smoke, then close it.
+**M3.3 is Completed**: the appointment picker, conflict card and visit actions work locally and on the owner's phone. Next: **M3.4** (Takvim day/week), on the owner's instruction.
 
 ## Last completed task
-**M3.2** (`5d0c7c6`, pushed): `scheduling.ts` + Vitest 18/18.
+**M3.3** (`73cce70`, pushed, Vercel deploy READY). Owner verified it on the phone (2026-10-18).
 
 ## Current or interrupted task
-**M3.3**: committed locally, not pushed.
+None.
 
 ## Files changed (M3.3)
 New: `src/actions/appointments.ts` (`checkSchedule`, `saveAppointment`, `closeAppointment`), `src/components/appointments/{appointment-picker,appointments-section}.tsx`. Changed: `scheduling.ts` (`TIME_OPTIONS`, `pickerDefaults`, `readAppointmentFields`), `actions/jobs.ts` (createJob takes the first visit), `new-job-form.tsx` + `isler/yeni/page.tsx` ("Randevu planla"), `isler/[id]/page.tsx` (AppointmentsSection), `job-timeline.tsx` + `labels.ts` (visit events), `confirm-action.tsx` (`pendingLabel`).
@@ -32,10 +32,10 @@ M3.3: local 360 px flows as C (see PROGRESS), typecheck, lint, `npm test` 18/18,
 - Test data on dev (C): Kombi bakımı (unplanned; visits: one completed, two cancelled), Petek temizliği (in progress, visit 19 Eki 10:00), "Batarya değişimi (test)" (scheduled, 19 Eki 10:00, clashes on purpose), "Klima montajı (test)" (in progress).
 
 ## Uncommitted changes
-None. Unpushed: the M3.3 commit.
+None. The M3.3 close-out tracker commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask the owner to approve `git push` (Vercel deploy), then they check on the phone: Yeni iş with "Randevu planla", a clashing time showing the warning and "Yine de kaydet", İş detayı add / Yeniden planla / Ziyaret yapıldı / iptal. On OK, mark M3.3 Completed and commit "M3.3: close task…". Then M3.4 (Takvim) on instruction.
+On "start the next task", do **M3.4** Takvim (`/takvim`): day and week views of scheduled visits (Istanbul days via `istanbulDayRange`/`istanbulWeekRange`), each linking to its job, with conflict markers (use `overlaps` from `scheduling.ts`), previous/next and "Bugün" navigation, skeleton/empty/error states. Done when it passes a smoke test.
 
 ## Resume commands
 ```bash
