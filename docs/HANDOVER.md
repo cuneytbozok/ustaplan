@@ -3,36 +3,39 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**M1.2 is Completed** (committed locally, not pushed): admin scripts exist, and fake artisans A and B exist in Supabase dev. Next: **M1.3** (Supabase clients, `proxy.ts`, `(app)` guard, `/giris`, logout).
+**M1.3 is In Progress**: login, logout and the route guard work locally with A and B. Waiting for push approval (deploy), then the owner's phone check, then M1.3 is closed.
 
 ## Last completed task
-**M1.2** 🔑: `npm run admin:create-artisan -- --email … --name …` and `npm run admin:reset-password -- --email …`. Both print a generated temporary password once. Create rolls back the auth user if the profile insert fails.
+**M1.2**: admin scripts + fake artisans A/B (pushed, `40a1523`).
 
 ## Current or interrupted task
-None.
+**M1.3**. Done locally (see PROGRESS evidence). Remaining:
+1. Push with approval (deploys to https://ustaplan.vercel.app).
+2. The owner logs in and out on the phone with test artisan A (credentials in `.env.local`; give them to the owner privately in chat only if asked, or create a personal account with `admin:create-artisan`).
+3. Mark Completed, update the trackers, commit.
 
 ## Files changed
-`scripts/{create-artisan,reset-password,admin-shared}.ts`, `src/lib/supabase/admin.ts` (secret-key client, `server-only`), `package.json`/lock (`@supabase/supabase-js`, dev `tsx`, `admin:*` scripts), `.env.example`, `README.md`, `docs/PROGRESS.md`, this file.
+`src/lib/supabase/server.ts` (user-scoped client; `await connection()` then `cookies()`), `src/lib/supabase/proxy.ts` (`updateSession`: `getClaims`, optimistic redirects, cookies kept on redirects), `src/proxy.ts` (matcher skips `/t`, `/api/t`, `/api/internal`, `/gizlilik`, `_next`, files with extensions), `src/lib/auth.ts` (`getCurrentArtisan`, React `cache`), `src/actions/auth.ts`, `src/components/auth/login-form.tsx`, `src/app/giris/page.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/bugun/page.tsx`, `src/app/page.tsx` (redirect fallback), `package.json`/lock (`@supabase/ssr`).
 
 ## Key decisions
-- Scripts run with `tsx --env-file-if-exists=.env.local --conditions=react-server`. The condition lets them import the `server-only` modules (`lib/env.ts`, `lib/supabase/admin.ts`). tsx compiles `.ts` as CJS, so scripts use `async function main()` rather than top-level await.
-- `npx supabase projects api-keys` **masks secret keys unless `--reveal`** is passed. The key was piped into `.env.local` with `--reveal`, never echoed.
-- The test artisans' credentials live only in `.env.local` as `TEST_ARTISAN_{A,B}_{EMAIL,PASSWORD}` (names in `.env.example`) for `security-check.ts` (M1.7) and for login checks in M1.3. Never print them.
-- zsh in this environment doesn't word-split variables; use shell functions, not `$CMD` strings.
-- Dev users: A `usta-a@ustaplan.test` (c16bd787-…), B `usta-b@ustaplan.test` (a7531534-…).
+- **Cache Components rules learned:** (1) every Supabase render read needs `await connection()` first, because `getClaims` uses `Date.now()`, which runtime prerendering forbids; this lives in `createClient()`. (2) The layout's Suspense isn't enough for instant navigation: **each page must put its own request-time reads inside its own `<Suspense>`**, with the static parts outside. (3) The env read comes after `connection()`, so `npm run build` still needs no env (verified with `.env.local` moved aside; note `env -i` doesn't stop Next from loading `.env.local`).
+- No browser Supabase client yet (nothing needs it); add `lib/supabase/browser.ts` when a client component first needs Supabase.
+- Logout uses `signOut({ scope: "local" })` (this device only). Push-subscription removal is added in M5.6.
+- A missing profile throws (error page) rather than redirecting, to avoid a `/giris` ↔ `/bugun` loop.
+- `/bugun` is a minimal landing (greeting + Çıkış yap). The real shell and Bugün screen come in M1.4+.
 
 ## Tests executed
-Rollback (forced profile 500) → no user left. A and B sign in via the publishable key and see only their own profile (live RLS). Reset: old password `invalid_credentials`, new one OK. Duplicate and unknown email refused. `npm run typecheck` and `lint` pass.
+Local browser-pane run at 360 px (see PROGRESS), curl redirects, typecheck, lint, env-free build. Not yet: phone.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None. The M1.2 commit is local; **pushing needs owner approval** (a push deploys; nothing user-visible changes).
+None after the M1.3 work commit. Not pushed.
 
 ## Exact next action
-On "start the next task", do **M1.3**. Read `node_modules/next/dist/docs` (proxy, authentication, `authentication-with-cache-components` since `cacheComponents` is on) and the current `@supabase/ssr` docs first. Then build `lib/supabase/{server,browser}.ts`, `src/proxy.ts` (refresh session; skip `/t`, `/api/t`, `/api/internal`, `/gizlilik`, static assets), the `(app)` layout guard using `getClaims()`/`getUser()`, `/giris` (email, password show/hide, fixed forgot-password sentence) and logout. Verify login with A and B locally and on the phone (needs a push).
+Ask for push approval → push → the owner tests login/logout on the phone → close M1.3 (PROGRESS, HANDOVER, commit).
 
 ## Resume commands
 ```bash
