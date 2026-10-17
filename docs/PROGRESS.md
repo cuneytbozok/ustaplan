@@ -13,9 +13,9 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M3 |
 | Active task | none |
-| Next task | **M3.2** (when the owner says "start the next task") |
+| Next task | **M3.3** (when the owner says "start the next task") |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` on dev |
-| Implementation tasks | 37 total · 16 completed · 21 remaining |
+| Implementation tasks | 37 total · 17 completed · 20 remaining |
 | Last updated | 2026-10-18 |
 
 ## Blockers and owner inputs
@@ -78,7 +78,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
 | M3.1 🔑 | Migration `appointments` (`save_appointment`, `close_appointment`) → dev (approval) | Completed | `supabase/migrations/20261017230457_appointments.sql` (CLI name). Job row locked first, then appointments. J2/J3 as in plan §7; reschedule supersedes + closes the open request; closed jobs refused; 15–480 min; idempotent repeats (T-13). **PGlite 38/38** (guards, cross-user not_found, durations, J2 on unplanned and kept for in_progress, reschedule chain + request closed, repeat calls, J3 both ways incl. "one of two", closed/reopened job, past visit, direct writes still denied). Also in this task: edit-form option renamed to "Adres Seç" (owner); timeline now labels `link_holder` events "Müşteri" (was checking a non-existent `customer` actor). typecheck, lint pass. **Applied to dev** with owner approval (`supabase db push`; `migration list` shows local = remote for all 3); `database.ts` regenerated. **security-check 105/105** (new: B save/reschedule/close on A's data → not_found with no effect, anon denied for both RPCs, owner control ok). **Live smoke as A on dev:** unplanned → save → scheduled; repeat → same id; reschedule (old superseded) + repeat → same id; cancel last → unplanned; new visit → scheduled; complete last → in_progress; events and appointment statuses as expected; fixtures removed. UI for appointments comes in M3.3 (2026-10-18) |
-| M3.2 | `scheduling.ts` + Vitest | Pending | |
+| M3.2 | `scheduling.ts` + Vitest | Completed | `src/lib/domain/scheduling.ts` (pure): `overlaps` (half-open, back-to-back free), `findConflicts` (skips the appointment being replaced), `suggestSlot` (first same-length gap 08:00–20:00 on the candidate's Istanbul day, else next day 09:00–20:00, 15-min steps, never in the past, null if both full), `istanbulDateTime`/`istanbulDateKey`/`istanbulTimeKey`, duration constants + `isValidDuration` (15–480, step 15). `tests/scheduling.test.ts` **18/18**, also with machine `TZ=UTC`, `America/New_York`, `Asia/Tokyo` (midnight, month/year rollover, invalid dates). typecheck, lint pass (2026-10-18) |
 | M3.3 | AppointmentPicker + ConflictCard; reschedule, complete, cancel a visit | Pending | |
 | M3.4 | Takvim day/week | Pending | |
 | M3.5 | Bugün (summary, today, Takip gerekenler incl. overdue) | Pending | |
@@ -133,4 +133,5 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-18 | M2.2 Yeni iş form + FAB | `ee90f49` | 4 interactions locally; owner's iPhone OK |
 | 2026-10-18 | M2.3 İşler list + search | `1858820` | local filter/search matrix; owner's iPhone OK |
 | 2026-10-18 | M2.4 İş detayı (**M2 complete**) | `91f77dc` | all §7 manual transitions + price history locally; build OK; security-check 98/98; owner's phone OK |
-| 2026-10-18 | M3.1 appointments migration on dev | (this commit) | PGlite 38/38; security-check 105/105; live J2/J3 smoke |
+| 2026-10-18 | M3.1 appointments migration on dev | `bd3c240` | PGlite 38/38; security-check 105/105; live J2/J3 smoke |
+| 2026-10-18 | M3.2 scheduling.ts + Vitest | (this commit) | 18/18 in 4 machine time zones |
