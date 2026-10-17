@@ -115,18 +115,22 @@ async function JobList({ searchParams }: { searchParams: PageProps<"/isler">["se
         )
       ) : (
         <ul className="flex flex-col gap-2" aria-label={`${filter.label} işler`}>
-          {/* Rows open the job detail page once it exists (M2.4). */}
           {jobs.map((job) => {
             const date = job[filter.order] ?? job.created_at;
             return (
-              <li key={job.id} className="flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-semibold text-ink">{job.title}</p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {job.customers?.name} · {formatShortDate(date)}
-                  </p>
-                </div>
-                <JobStatusBadge status={job.status} />
+              <li key={job.id}>
+                <Link
+                  href={`/isler/${job.id}`}
+                  className="flex min-h-16 items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 hover:bg-muted"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-semibold text-ink">{job.title}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {job.customers?.name} · {formatShortDate(date)}
+                    </p>
+                  </div>
+                  <JobStatusBadge status={job.status} />
+                </Link>
               </li>
             );
           })}

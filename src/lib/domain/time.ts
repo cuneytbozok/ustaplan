@@ -34,3 +34,8 @@ export function istanbulWeekRange(now: Date = new Date()) {
   const start = startOfISOWeek(new TZDate(now, TIME_ZONE));
   return { start: new Date(start.getTime()), end: new Date(addDays(start, 7).getTime()) };
 }
+
+/** True while a visit hasn't ended yet ("future" in J4/J6, plan T-12). */
+export function hasNotEnded(endsAt: Date | string, now: Date = new Date()) {
+  return new Date(endsAt).getTime() > now.getTime();
+}

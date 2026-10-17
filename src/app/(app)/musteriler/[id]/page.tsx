@@ -110,12 +110,14 @@ async function CustomerDetail({ params }: { params: PageProps<"/musteriler/[id]"
         ) : (
           <ul className="flex flex-col divide-y divide-border">
             {customer.jobs.map((job) => (
-              <li key={job.id} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="min-w-0 truncate text-sm text-ink">{job.title}</span>
-                <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                  {formatShortDate(job.created_at)}
-                  <JobStatusBadge status={job.status} />
-                </span>
+              <li key={job.id}>
+                <Link href={`/isler/${job.id}`} className="-mx-2 flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
+                  <span className="min-w-0 truncate text-sm text-ink">{job.title}</span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    {formatShortDate(job.created_at)}
+                    <JobStatusBadge status={job.status} />
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

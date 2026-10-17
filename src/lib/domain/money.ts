@@ -18,3 +18,12 @@ export function parseTurkishPrice(input: string): number | null {
   const value = Number(cleaned.replace(/\./g, "").replace(",", "."));
   return Number.isFinite(value) && value <= 9_999_999_999.99 ? value : null;
 }
+
+const wholeInput = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 });
+const centsInput = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Prefills a price input so parseTurkishPrice reads it back: 2500 → "2.500", 2500.5 → "2.500,50". */
+export function formatPriceInput(amount: number | null) {
+  if (amount === null) return "";
+  return (Number.isInteger(amount) ? wholeInput : centsInput).format(amount);
+}
