@@ -216,7 +216,7 @@ export function NewJobForm({
                 <legend className="mb-1 text-sm font-medium text-ink">Adres</legend>
                 <label className="flex min-h-11 items-center gap-3 rounded-xl border border-border px-3 text-sm text-ink">
                   <input type="radio" name="addressId" value="" defaultChecked={!values.addressId} className="size-4 accent-primary" />
-                  Adres seçme
+                  Adres Seç
                 </label>
                 {selected.addresses.map((address) => (
                   <label key={address.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-border px-3 py-2 text-sm text-ink">

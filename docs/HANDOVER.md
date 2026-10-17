@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M2.2 is In Progress**: the Yeni iş form works locally (4 interactions for an existing customer, 3 from the customer page). Waiting for push approval (deploy) and the owner's phone check, then M2.2 is closed. Next after that: **M2.3** (İşler list + search).
+**M2.2 is Completed**: the Yeni iş form + FAB work locally and on the owner's iPhone. Next: **M2.3** (İşler list + search), on the owner's instruction.
 
 ## Last completed task
-**M2.1** (`22362cc`, pushed): `jobs` migration on dev; security-check 98/98.
+**M2.2** (`ee90f49`, pushed; label tweak in the close-out commit): Yeni iş with recent-customer chips, inline customer, Diğer detaylar, idempotent `create_job`, FAB on the tab pages. Owner-requested label: the no-address radio reads **"Adres Seç"** (it means no address chosen for the job).
 
 ## Current or interrupted task
-**M2.2**: remaining: push (approval). On the phone the owner creates a job for an existing customer via FAB → chip → type → İşi kaydet (≤ 4 interactions), and one with a new inline customer. Then close (PROGRESS, HANDOVER, commit).
+None.
 
 ## Files changed (M2.2)
 `src/actions/jobs.ts`, `src/app/(app)/isler/yeni/page.tsx`, `src/components/jobs/new-job-form.tsx`, `src/components/shell/new-job-fab.tsx`, `src/app/(app)/layout.tsx` (FAB + more bottom padding), `src/app/(app)/musteriler/[id]/page.tsx` ("Yeni iş" button).
@@ -38,10 +38,10 @@ M1.4: helper scratch run, local 360 px tab/sheet/logout run, the A/B count isola
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None after the M2.2 commit. Not pushed: M2.2.
+None. The M2.2 close-out commit ("Adres Seç" label + trackers) is local; push it with the next approved push.
 
 ## Exact next action
-Ask for push approval → push → the owner checks M2.2 on the phone → close M2.2. Then, on instruction, **M2.3** İşler: Açık / Tamamlanan / İptal filters + search on title (`jobs.search_key`), customer name and phone (via customers.search_key), status shown with colour + text.
+On "start the next task", do **M2.3** İşler: Açık / Tamamlanan / İptal filters + search on title (`jobs.search_key`), customer name and phone (via customers.search_key), status shown with colour + text.
 
 ## Resume commands
 ```bash

@@ -12,10 +12,10 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M2 |
-| Active task | **M2.2** (In Progress: verified locally, waiting for deploy + phone check) |
-| Next task | M2.3 (after M2.2 is closed) |
+| Active task | none |
+| Next task | **M2.3** (when the owner says "start the next task") |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6); DB `core` on dev |
-| Implementation tasks | 37 total · 12 completed · 25 remaining |
+| Implementation tasks | 37 total · 13 completed · 24 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
@@ -70,7 +70,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
 | M2.1 🔑 | Migration `jobs` (`create_job`, `change_job_status`, `jobs_log_changes`) → dev (approval) | Completed | `supabase/migrations/20261017214332_jobs.sql`. PGlite dry run (core + jobs) **50/50**: inline/existing customer, first appointment, idempotent repeat, foreign customer/address/job id refused, J1/J4 (future appointment cancelled, ended visit untouched, open request closed)/J5/J6, idempotent transitions, `not_found` for foreign jobs, trigger logs prices/visibility/share/title (not private note), `share_version` can't decrease, no phone/address in events, anon denied. `db push` with owner approval; types regenerated. Catalog: anon executes nothing; trigger function not executable by authenticated; all `search_path=""`. Advisors: lint 0029 for the 2 RPCs (accepted by design, plan T-12) + leaked-password protection off (open item). `security-check` extended → **98/98 PASS** (B's `change_job_status` → not_found with status unchanged, B `create_job` with A's customer/job id refused, anon RPCs denied, trigger not callable, `share_version` can't be lowered, owner control OK). typecheck + lint pass (2026-10-18) |
-| M2.2 | Yeni iş form (recent chips, inline customer, Diğer detaylar) | In Progress | `/isler/yeni` + `actions/jobs.ts` `createJob` → `create_job` RPC with a client-generated job id (idempotent). Recent-customer chips (latest jobs' customers, then recently edited), "Diğer müşteri" search, inline "Yeni müşteri" (name + optional E.164 phone), "Yapılacak iş" ("Müşteri de görür."), Diğer detaylar: address radio list of the chosen customer, agreed price + "Anlaşılan fiyatı müşteri görsün" (disabled without an agreed price), estimate + private note ("Sadece sen görürsün."), sticky "İşi kaydet". Choosing a chip or arriving with `?musteri=` focuses the title. `+ Yeni iş` FAB on the 4 tab pages only (in Suspense, it reads the URL); "Yeni iş" button on the customer page. After saving → the customer page (job detail is M2.4). **Local 360 px as C:** validation (missing name, bad estimate) keeps values and opens details; inline new customer + prices + note saved (DB: agreed 2500.50 shown, estimate 2000, phone +905332223344, `job_created` event); **existing customer in 4 interactions** (FAB → chip → type → İşi kaydet); from the customer page in 3; address selection stored. typecheck, lint, env-free build pass. **Remaining:** deploy + ≤ 4 interactions on the phone (2026-10-18) |
+| M2.2 | Yeni iş form (recent chips, inline customer, Diğer detaylar) | Completed | `/isler/yeni` + `actions/jobs.ts` `createJob` → `create_job` RPC with a client-generated job id (idempotent). Recent-customer chips (latest jobs' customers, then recently edited), "Diğer müşteri" search, inline "Yeni müşteri" (name + optional E.164 phone), "Yapılacak iş" ("Müşteri de görür."), Diğer detaylar: address radio list of the chosen customer, agreed price + "Anlaşılan fiyatı müşteri görsün" (disabled without an agreed price), estimate + private note ("Sadece sen görürsün."), sticky "İşi kaydet". Choosing a chip or arriving with `?musteri=` focuses the title. `+ Yeni iş` FAB on the 4 tab pages only (in Suspense, it reads the URL); "Yeni iş" button on the customer page. After saving → the customer page (job detail is M2.4). **Local 360 px as C:** validation (missing name, bad estimate) keeps values and opens details; inline new customer + prices + note saved (DB: agreed 2500.50 shown, estimate 2000, phone +905332223344, `job_created` event); **existing customer in 4 interactions** (FAB → chip → type → İşi kaydet); from the customer page in 3; address selection stored. typecheck, lint, env-free build pass. **Owner's iPhone** (`ee90f49`, pushed): creating jobs works. Owner feedback: the no-address radio option was renamed from "Adres seçme" to **"Adres Seç"** (owner's wording). Jobs list/edit come in M2.3/M2.4; no delete by design (P-3) (2026-10-18) |
 | M2.3 | İşler list: filters + search | Pending | |
 | M2.4 | İş detayı: edit, price + history, status sheet, reopen, timeline | Pending | |
 
@@ -130,3 +130,4 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-18 | M1.6 customers + addresses | `5fa757d` | local flows as C, live RLS probe as B; owner's iPhone OK |
 | 2026-10-18 | M1.7 security-check v1 (**M1 complete**) | `e9fc6c1` | 89/89 PASS against dev; milestone build OK |
 | 2026-10-18 | M2.1 jobs migration on dev | `22362cc` | PGlite 50/50; security-check 98/98 |
+| 2026-10-18 | M2.2 Yeni iş form + FAB | `ee90f49` | 4 interactions locally; owner's iPhone OK |
