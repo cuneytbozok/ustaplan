@@ -1,7 +1,8 @@
 /**
  * Security check against the DEV project (IMPLEMENTATION_PLAN §12).
  * v1 (M1.7): RLS isolation for every table, anon denial, storage isolation,
- * workflow-column denial. Extended in M4.5 (links, exposure) and M5.9.
+ * workflow-column denial. M2.1: job RPCs reject foreign data and anon.
+ * Extended in M4.5 (links, exposure) and M5.9.
  *
  *   npm run security-check
  *
@@ -198,6 +199,27 @@ async function main() {
     expectPermissionDenied("A cannot change job_media.origin", await a.client.from("job_media").update({ origin: "customer" }).eq("id", ids.media));
     expectRefused("A cannot insert customer-origin media", await a.client.from("job_media").insert({ job_id: ids.job, kind: "image", origin: "customer", visibility: "shared", storage_bucket: "job-images", storage_path: `${a.id}/${ids.job}/c.jpg`, mime_type: "image/jpeg", size_bytes: 10 }));
     expectRefused("A cannot show an estimate-only price", await a.client.from("jobs").update({ agreed_price: null, show_price_to_customer: true }).eq("id", ids.job).select("id"));
+
+    // ---- Job RPCs (M2.1): owner-only, never anon ----
+    console.log("\nJob RPCs");
+    const rpcResult = (r: Result) => (r.data as { result?: string } | null)?.result;
+    const bStatus = await b.client.rpc("change_job_status", { p_job_id: ids.job, p_action: "cancel" });
+    record("B change_job_status on A's job → not_found", rpcResult(bStatus) === "not_found", bStatus.error?.message ?? rpcResult(bStatus));
+    const afterB = await admin.from("jobs").select("status").eq("id", ids.job).single();
+    record("A's job status unchanged after B's call", (afterB.data as { status: string } | null)?.status === "scheduled", (afterB.data as { status: string } | null)?.status);
+    const bCreate = await b.client.rpc("create_job", { p_job_id: randomUUID(), p_title: "x", p_customer_id: ids.customer });
+    record("B create_job with A's customer → customer_not_found", rpcResult(bCreate) === "customer_not_found", bCreate.error?.message ?? rpcResult(bCreate));
+    const bReuse = await b.client.rpc("create_job", { p_job_id: ids.job, p_title: "x", p_new_customer_name: "x" });
+    record("B create_job reusing A's job id → invalid_input", rpcResult(bReuse) === "invalid_input", bReuse.error?.message ?? rpcResult(bReuse));
+    expectPermissionDenied("anon cannot execute create_job", await anon.rpc("create_job", { p_job_id: randomUUID(), p_title: "x", p_new_customer_name: "x" }));
+    expectPermissionDenied("anon cannot execute change_job_status", await anon.rpc("change_job_status", { p_job_id: ids.job, p_action: "cancel" }));
+    // PostgREST doesn't expose trigger functions at all (PGRST202); either way it must not run.
+    const triggerCall = await a.client.rpc("jobs_log_changes");
+    record("signed-in users cannot call the trigger function", ["42501", "PGRST202"].includes(triggerCall.error?.code ?? ""), triggerCall.error?.code ?? "accepted");
+    const aStatus = await a.client.rpc("change_job_status", { p_job_id: ids.job, p_action: "start" });
+    record("control: A change_job_status on own job → ok", rpcResult(aStatus) === "ok", aStatus.error?.message ?? rpcResult(aStatus));
+    const lowerVersion = await a.client.from("jobs").update({ share_version: 0 }).eq("id", ids.job).select("id");
+    record("share_version cannot be lowered", Boolean(lowerVersion.error), "accepted");
 
     // ---- Storage ----
     console.log("\nStorage isolation");

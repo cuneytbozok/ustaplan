@@ -11,11 +11,11 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | | |
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
-| Current milestone | M1 done → next: M2 |
+| Current milestone | M2 |
 | Active task | none |
-| Next task | **M2.1** 🔑 (when the owner says "start the next task") |
+| Next task | **M2.2** (when the owner says "start the next task") |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6); DB `core` on dev |
-| Implementation tasks | 37 total · 11 completed · 26 remaining |
+| Implementation tasks | 37 total · 12 completed · 25 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
@@ -26,7 +26,8 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Done: `xytwwudbnykackuxfeif`, Ireland (accepted, plan T-10) |
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Done: project `ustaplan`, https://ustaplan.vercel.app |
 | Set Vercel Function Region to Dublin (`dub1`), near the Ireland DB (default is `iad1`) | before M1.3 | Done: owner set Dublin (2026-10-17) |
-| Approve each migration push to dev | M1.1 ✓, M2.1, M3.1, M5.1, M5.3, M5.8 | Ask per task (M1.1 approved 2026-10-17) |
+| Approve each migration push to dev | M1.1 ✓, M2.1 ✓, M3.1, M5.1, M5.3, M5.8 | Ask per task (M2.1 approved 2026-10-18) |
+| Leaked password protection (Supabase Auth, HaveIBeenPwned) is off; advisor warns | before pilot (M6.3) | Owner to decide; may need a paid plan |
 | Approve creating the fake test users in dev | M1.2 | Done (approved 2026-10-17) |
 | Add VAPID keys to Vercel; run the Vault secrets SQL template | M5.6, M5.8 | Ask per task |
 | A phone for testing (an iPhone 16.4+ and/or Android for push) | from M0.4 | Assumed available |
@@ -68,7 +69,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M2 — Jobs, statuses, pricing, search, history · depends on M1
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M2.1 🔑 | Migration `jobs` (`create_job`, `change_job_status`, `jobs_log_changes`) → dev (approval) | Pending | |
+| M2.1 🔑 | Migration `jobs` (`create_job`, `change_job_status`, `jobs_log_changes`) → dev (approval) | Completed | `supabase/migrations/20261017214332_jobs.sql`. PGlite dry run (core + jobs) **50/50**: inline/existing customer, first appointment, idempotent repeat, foreign customer/address/job id refused, J1/J4 (future appointment cancelled, ended visit untouched, open request closed)/J5/J6, idempotent transitions, `not_found` for foreign jobs, trigger logs prices/visibility/share/title (not private note), `share_version` can't decrease, no phone/address in events, anon denied. `db push` with owner approval; types regenerated. Catalog: anon executes nothing; trigger function not executable by authenticated; all `search_path=""`. Advisors: lint 0029 for the 2 RPCs (accepted by design, plan T-12) + leaked-password protection off (open item). `security-check` extended → **98/98 PASS** (B's `change_job_status` → not_found with status unchanged, B `create_job` with A's customer/job id refused, anon RPCs denied, trigger not callable, `share_version` can't be lowered, owner control OK). typecheck + lint pass (2026-10-18) |
 | M2.2 | Yeni iş form (recent chips, inline customer, Diğer detaylar) | Pending | |
 | M2.3 | İşler list: filters + search | Pending | |
 | M2.4 | İş detayı: edit, price + history, status sheet, reopen, timeline | Pending | |
@@ -127,4 +128,5 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-18 | M1.4 app shell, common states, domain helpers | `f0ac478` | local 360 px + count isolation; owner's phone OK |
 | 2026-10-18 | M1.5 Ayarlar + early manifest (T-11) | `6cb7a66`, `5bb5bb6` | local B flows + Supabase password check; owner's iPhone OK |
 | 2026-10-18 | M1.6 customers + addresses | `5fa757d` | local flows as C, live RLS probe as B; owner's iPhone OK |
-| 2026-10-18 | M1.7 security-check v1 (**M1 complete**) | see `git log` (M1.7) | 89/89 PASS against dev; milestone build OK |
+| 2026-10-18 | M1.7 security-check v1 (**M1 complete**) | `e9fc6c1` | 89/89 PASS against dev; milestone build OK |
+| 2026-10-18 | M2.1 jobs migration on dev | see `git log` (M2.1) | PGlite 50/50; security-check 98/98 |

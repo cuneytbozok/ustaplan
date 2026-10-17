@@ -552,6 +552,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      change_job_status: {
+        Args: { p_action: string; p_job_id: string; p_note?: string }
+        Returns: Json
+      }
+      create_job: {
+        Args: {
+          p_address_id?: string
+          p_agreed_price?: number
+          p_customer_id?: string
+          p_ends_at?: string
+          p_estimated_price?: number
+          p_job_id: string
+          p_new_customer_name?: string
+          p_new_customer_phone?: string
+          p_private_note?: string
+          p_show_price?: boolean
+          p_starts_at?: string
+          p_title: string
+        }
+        Returns: Json
+      }
       fold_tr: { Args: { input: string }; Returns: string }
     }
     Enums: {

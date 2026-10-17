@@ -491,6 +491,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | T-7 | **v3.1:** verification = typecheck/lint + smoke per task; build at milestone ends, before deploys, after significant changes; 3 Vitest files + security script mandatory where relevant | |
 | T-8 | **v3.1:** timestamped migration names from `supabase migration new` | |
 | T-9 | **v3.1:** env validated lazily per feature; the build needs no secrets | |
+| T-12 | **M2.1:** `create_job` takes a caller-generated `job_id` (idempotent create). "Future" appointments in J4/J6 = `ends_at > now()` (P-2). `jobs_log_changes` refuses a lower `share_version`. Supabase advisor lint 0029 (definer RPCs executable by `authenticated`) is accepted by design: each RPC checks `auth.uid()` and ownership, covered by `security-check.ts`. | |
 | T-11 | **M1.5 (owner):** manifest (`scope: "/"`, `start_url: /bugun`, standalone) + apple-icon + 192/512 icons moved forward from M5.5 so the iOS home-screen app stays standalone across tabs. | |
 | T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.3) stays in Frankfurt.** | |
 

@@ -1,6 +1,6 @@
 # UstaPlan — Target Data Model (reconciled)
 
-**Status:** Approved design. Implemented so far: `core` (M1.1: §2 tables, §3 grants/RLS, §5 `touch_updated_at`, §6 storage). Hand-written migrations under `supabase/migrations/` implement it incrementally (plan v3: M1.1 core, M2.1 jobs, M3.1 appointments, M5.x customer actions and cron). They are applied to the hosted dev project with the Supabase CLI (no Docker), only with owner approval. The [starter schema](03_SCHEMA_STARTER.sql) is kept only as a reference; §9 lists every difference and why.
+**Status:** Approved design. Implemented so far: `core` (M1.1: §2 tables, §3 grants/RLS, §5 `touch_updated_at`, §6 storage), `jobs` (M2.1: `create_job`, `change_job_status`, `jobs_log_changes`). Hand-written migrations under `supabase/migrations/` implement it incrementally (plan v3: M1.1 core, M2.1 jobs, M3.1 appointments, M5.x customer actions and cron). They are applied to the hosted dev project with the Supabase CLI (no Docker), only with owner approval. The [starter schema](03_SCHEMA_STARTER.sql) is kept only as a reference; §9 lists every difference and why.
 
 Conventions:
 - All tables live in `public` with RLS enabled. Every child row carries `owner_user_id`. Composite foreign keys `(owner_user_id, parent_id)` stop a row being attached to another artisan's data, even if someone guesses a UUID.
@@ -210,8 +210,8 @@ Each one locks the job row (`select … for update`), validates the transition, 
 
 | Function | Effect |
 | --- | --- |
-| `create_job(customer_id \| new_customer {name, phone}, address_id, title, private_note, estimated_price, agreed_price, show_price, starts_at?, ends_at?)` | Optional inline customer + job + optional first appointment, in one transaction (status `scheduled` or `unplanned`). |
-| `change_job_status(job_id, action, note?)` | `action ∈ start · wait_material · complete · cancel · reopen`. Applies plan §7 rules J1–J6, including cascades to appointments and requests. |
+| `create_job(job_id, title, customer_id \| new_customer_name + phone, address_id, private_note, estimated_price, agreed_price, show_price, starts_at?, ends_at?)` | Optional inline customer + job + optional first appointment, in one transaction (status `scheduled` or `unplanned`). The caller supplies `job_id`, so a repeated call returns the same job. Results: `ok · customer_not_found · invalid_input`. |
+| `change_job_status(job_id, action, note?)` | `action ∈ start · wait_material · complete · cancel · reopen`. Applies plan §7 rules J1–J6, including cascades to appointments and requests. Complete and cancel both cancel scheduled appointments with `ends_at > now()`; ended visits stay for Takip gerekenler. Results: `ok · not_found · invalid_transition · invalid_input`. |
 | `save_appointment(job_id, appointment_id?, starts_at, ends_at)` | New appointment, or reschedule (old one `superseded` + `replaced_by_id`, open request `closed`). Applies J2. |
 | `close_appointment(appointment_id, outcome)` | `outcome ∈ completed · cancelled`; closes the open request; applies J3. |
 | `respond_to_request(request_id, action, counter_starts_at?, counter_ends_at?)` | `approve · reject · counter`; approve does the atomic swap. |
@@ -236,7 +236,7 @@ The dispatcher endpoint (plan §9) uses the admin client:
 
 ## 5. Triggers
 - `touch_updated_at` on profiles, customers, customer_addresses, jobs, appointments, appointment_requests.
-- `jobs_log_changes` (after update, `security definer`): writes `price_changed` (`{field, old, new}`), `price_visibility_changed`, `share_enabled`/`share_disabled`/`share_rotated` and `job_updated` (title, address) events. This gives price history without extra code paths.
+- `jobs_log_changes` (after update, `security definer`): writes `price_changed` (`{field, old, new}`), `price_visibility_changed`, `share_enabled`/`share_disabled`/`share_rotated` and `job_updated` (title, address, customer) events. This gives price history without extra code paths. It also rejects a lower `share_version` (revoked links can't come back). `actor_type` is `artisan` when the owner made the change, otherwise `system`.
 
 ---
 
