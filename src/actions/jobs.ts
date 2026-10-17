@@ -7,6 +7,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { actionContext, SESSION_EXPIRED } from "@/lib/auth-action";
 import { parseTurkishPrice } from "@/lib/domain/money";
 import { normalizePhone } from "@/lib/domain/phone";
+import { readAppointmentFields } from "@/lib/domain/scheduling";
 
 export type NewJobValues = {
   jobId: string;
@@ -80,7 +81,11 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
   if (input.showPrice && agreed === null && !errors.agreedPrice) errors.agreedPrice = "Müşteriye göstermek için anlaşılan fiyatı yaz.";
 
   const addressId = input.customerMode === "existing" && isUuid(input.addressId) ? input.addressId : null;
+  // "Randevu planla" is optional; when on, the first visit is created in the same transaction.
+  const appointment = formData.get("schedule") === "on" ? readAppointmentFields(formData) : null;
+  if (appointment && "error" in appointment) errors.appointment = appointment.error;
   if (Object.keys(errors).length) return fail("Bilgileri kontrol et.", errors);
+  const slot = appointment && !("error" in appointment) ? appointment : null;
 
   const { supabase, userId } = await actionContext();
   if (!userId) return fail(SESSION_EXPIRED);
@@ -96,6 +101,8 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
     p_estimated_price: estimated ?? undefined,
     p_agreed_price: agreed ?? undefined,
     p_show_price: input.showPrice,
+    p_starts_at: slot?.start.toISOString(),
+    p_ends_at: slot?.end.toISOString(),
   });
   if (error) {
     return error.code === "23503" ? fail("Seçilen adres bu müşteriye ait değil.") : fail("İş kaydedilemedi. Tekrar dene.");

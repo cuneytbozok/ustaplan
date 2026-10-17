@@ -41,7 +41,7 @@ export const JOB_EVENT_LABELS: Record<string, string> = {
   price_visibility_changed: "Fiyat görünürlüğü değişti",
   appointment_scheduled: "Randevu planlandı",
   appointment_rescheduled: "Randevu yeniden planlandı",
-  appointment_completed: "Randevu tamamlandı",
+  appointment_completed: "Ziyaret yapıldı",
   appointment_cancelled: "Randevu iptal edildi",
   request_created: "Müşteri yeni tarih istedi",
   request_countered: "Yeni tarih önerildi",

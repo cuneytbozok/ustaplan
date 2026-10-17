@@ -7,6 +7,7 @@ export type JobEvent = { id: string; event_type: string; actor_type: string; pay
 type Payload = Record<string, unknown>;
 
 const price = (value: unknown) => (typeof value === "number" ? formatTRY(value) : "—");
+const when = (value: unknown) => (typeof value === "string" ? `${formatShortDate(value)} ${formatTime(value)}` : undefined);
 const status = (value: unknown) => JOB_STATUS_LABELS[value as keyof typeof JOB_STATUS_LABELS] ?? "—";
 
 /** One line per event: headline plus the detail the payload allows (never phones or addresses). */
@@ -36,10 +37,11 @@ export function describeEvent(event: JobEvent): { title: string; detail?: string
     case "job_reopened":
       return { title: "İş yeniden açıldı", detail: `Önceki durum: ${status(p.from)}` };
     case "appointment_scheduled":
-      return {
-        title: "Randevu planlandı",
-        detail: typeof p.starts_at === "string" ? `${formatShortDate(p.starts_at)} ${formatTime(p.starts_at)}` : undefined,
-      };
+    case "appointment_completed":
+    case "appointment_cancelled":
+      return { title: JOB_EVENT_LABELS[event.event_type], detail: when(p.starts_at) };
+    case "appointment_rescheduled":
+      return { title: "Randevu yeniden planlandı", detail: `${when(p.old_starts_at) ?? "—"} → ${when(p.starts_at) ?? "—"}` };
     default:
       return { title: JOB_EVENT_LABELS[event.event_type] ?? "Değişiklik" };
   }

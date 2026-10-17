@@ -87,3 +87,30 @@ export function suggestSlot(
     firstFreeSlot(istanbulDateKey(candidate.start, 1), "09:00", "20:00", minutes, busy, now)
   );
 }
+
+/** All picker times of a day in 15-minute steps: "00:00" … "23:45". */
+export const TIME_OPTIONS = Array.from({ length: (24 * 60) / STEP_MINUTES }, (_, i) => {
+  const minutes = i * STEP_MINUTES;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+});
+
+/**
+ * Picker defaults: today and tomorrow (Istanbul) plus a starting slot,
+ * the next full hour between 08:00 and 19:00, otherwise 09:00 the next working morning.
+ */
+export function pickerDefaults(now: Date = new Date()) {
+  const today = istanbulDateKey(now);
+  const tomorrow = istanbulDateKey(now, 1);
+  const hour = new TZDate(now, TIME_ZONE).getHours() + 1;
+  const start = hour < 8 ? { date: today, time: "09:00" } : hour > 19 ? { date: tomorrow, time: "09:00" } : { date: today, time: `${String(hour).padStart(2, "0")}:00` };
+  return { today, tomorrow, ...start };
+}
+
+/** Reads the picker fields (Istanbul date + time + duration) of a form into a UTC interval. */
+export function readAppointmentFields(formData: FormData): Interval | { error: string } {
+  const start = istanbulDateTime(String(formData.get("apptDate") ?? ""), String(formData.get("apptTime") ?? ""));
+  const duration = Number(formData.get("apptDuration"));
+  if (!start) return { error: "Randevu için tarih ve saati seç." };
+  if (!isValidDuration(duration)) return { error: "Süre 15 dakika ile 8 saat arasında olmalı." };
+  return { start, end: addMinutes(start, duration) };
+}

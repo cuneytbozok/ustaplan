@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { Check, Plus, Search, UserPlus } from "lucide-react";
 import { createJob, type NewJobValues } from "@/actions/jobs";
+import { AppointmentPicker, type PickerValue } from "@/components/appointments/appointment-picker";
 import { describedBy, FormField, inputClassName } from "@/components/common/form-field";
 import { FormStatus } from "@/components/common/form-status";
 import { foldTr } from "@/lib/domain/search-fold";
@@ -21,10 +22,12 @@ export function NewJobForm({
   customers,
   recentIds,
   initialCustomerId,
+  picker,
 }: {
   customers: CustomerOption[];
   recentIds: string[];
   initialCustomerId?: string;
+  picker: { today: string; tomorrow: string; initial: PickerValue };
 }) {
   const [jobId] = useState(() => crypto.randomUUID());
   const [state, formAction, pending] = useActionState(createJob, null);
@@ -33,6 +36,8 @@ export function NewJobForm({
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState("");
   const [agreed, setAgreed] = useState("");
+  const [schedule, setSchedule] = useState(false);
+  const [conflict, setConflict] = useState(false);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
@@ -204,6 +209,26 @@ export function NewJobForm({
         />
       </FormField>
 
+      <div className="rounded-xl border border-border bg-surface">
+        <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 text-sm font-semibold text-ink">
+          Randevu planla
+          <input
+            type="checkbox"
+            name="schedule"
+            role="switch"
+            checked={schedule}
+            onChange={(event) => setSchedule(event.target.checked)}
+            className="size-5 shrink-0 accent-primary"
+          />
+        </label>
+        {schedule ? (
+          <div className="border-t border-border p-4">
+            <AppointmentPicker today={picker.today} tomorrow={picker.tomorrow} initial={picker.initial} onConflictChange={setConflict} />
+            {errors.appointment ? <p className="mt-2 text-sm text-danger">{errors.appointment}</p> : null}
+          </div>
+        ) : null}
+      </div>
+
       <details open={detailsHaveError || undefined} className="group rounded-xl border border-border bg-surface">
         <summary className="flex h-12 cursor-pointer list-none items-center gap-2 px-4 text-sm font-semibold text-primary">
           <Plus className="size-4 transition-transform group-open:rotate-45" aria-hidden />
@@ -309,7 +334,7 @@ export function NewJobForm({
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-70"
         >
           <Check className="size-5" aria-hidden />
-          {pending ? "Kaydediliyor…" : "İşi kaydet"}
+          {pending ? "Kaydediliyor…" : schedule && conflict ? "Yine de kaydet" : "İşi kaydet"}
         </button>
       </div>
     </form>

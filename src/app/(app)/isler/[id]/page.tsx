@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { MessageCircle, Navigation, Pencil, Phone } from "lucide-react";
+import { AppointmentsSection } from "@/components/appointments/appointments-section";
 import { BackLink } from "@/components/common/back-link";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
@@ -9,11 +10,12 @@ import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { JobStatusSheet, ReopenJobButton } from "@/components/jobs/job-status-sheet";
 import { describeEvent, JobTimeline } from "@/components/jobs/job-timeline";
 import { createClient } from "@/lib/supabase/server";
-import { APPOINTMENT_STATUS_LABELS, CANCEL_REASON_LABELS, OPEN_JOB_STATUSES, type AppointmentStatus } from "@/lib/domain/labels";
+import { CANCEL_REASON_LABELS, OPEN_JOB_STATUSES } from "@/lib/domain/labels";
 import { mapHref, whatsappHref } from "@/lib/domain/links";
+import { DEFAULT_DURATION_MINUTES, pickerDefaults } from "@/lib/domain/scheduling";
 import { formatTRY } from "@/lib/domain/money";
 import { formatPhone, telHref } from "@/lib/domain/phone";
-import { formatDate, formatShortDate, formatTime, hasNotEnded } from "@/lib/domain/time";
+import { formatDate, formatShortDate, hasNotEnded } from "@/lib/domain/time";
 
 export const metadata: Metadata = { title: "İş" };
 
@@ -60,6 +62,7 @@ async function JobDetail({ params }: { params: PageProps<"/isler/[id]">["params"
   const isOpen = (OPEN_JOB_STATUSES as readonly string[]).includes(job.status);
   // J4/J6: the cascade cancels scheduled visits that haven't ended (P-2).
   const upcoming = job.appointments.filter((a) => a.status === "scheduled" && hasNotEnded(a.ends_at));
+  const { today, tomorrow, date, time } = pickerDefaults();
   const priceEvents = eventsResult.data.filter((e) => e.event_type === "price_changed" || e.event_type === "price_visibility_changed");
 
   return (
@@ -141,23 +144,12 @@ async function JobDetail({ params }: { params: PageProps<"/isler/[id]">["params"
         </section>
       ) : null}
 
-      {job.appointments.length ? (
-        <section className={cardClass}>
-          <h2 className="mb-2 text-base font-semibold text-ink">Randevular</h2>
-          <ul className="flex flex-col divide-y divide-border">
-            {job.appointments.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <span className="text-ink">
-                  {formatDate(a.starts_at)}, {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {APPOINTMENT_STATUS_LABELS[a.status as AppointmentStatus] ?? a.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <AppointmentsSection
+        jobId={job.id}
+        isOpen={isOpen}
+        appointments={job.appointments.map((a) => ({ ...a, overdue: a.status === "scheduled" && !hasNotEnded(a.ends_at) }))}
+        picker={{ today, tomorrow, initial: { date, time, duration: DEFAULT_DURATION_MINUTES } }}
+      />
 
       <section className={cardClass}>
         <h2 className="mb-3 text-base font-semibold text-ink">Fiyat</h2>

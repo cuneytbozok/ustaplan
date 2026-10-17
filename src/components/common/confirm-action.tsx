@@ -13,12 +13,14 @@ export function ConfirmAction({
   label,
   confirmLabel,
   question,
+  pendingLabel = "Siliniyor…",
   className,
 }: {
   action: () => Promise<ActionResult | void>;
   label: string;
   confirmLabel: string;
   question: string;
+  pendingLabel?: string;
   className?: string;
 }) {
   const [asking, setAsking] = useState(false);
@@ -73,7 +75,7 @@ export function ConfirmAction({
           }
           className="h-11 rounded-xl bg-danger text-sm font-semibold text-white hover:bg-danger/90 disabled:opacity-70"
         >
-          {pending ? "Siliniyor…" : confirmLabel}
+          {pending ? pendingLabel : confirmLabel}
         </button>
       </div>
     </div>
