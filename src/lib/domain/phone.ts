@@ -27,3 +27,13 @@ export function formatPhone(e164: string): string {
 export function telHref(e164: string) {
   return `tel:${e164}`;
 }
+
+/**
+ * Turns a phone-like search query into the digits stored in search_key
+ * ("0532 12" → "53212"), or null if the query isn't phone-like.
+ */
+export function phoneSearchDigits(query: string): string | null {
+  if (!/^[\d\s()+-]+$/.test(query)) return null;
+  const digits = query.replace(/\D/g, "").replace(/^0+/, "");
+  return digits.length >= 3 ? digits : null;
+}

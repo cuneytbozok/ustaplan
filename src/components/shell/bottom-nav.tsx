@@ -12,9 +12,8 @@ const TABS = [
   { href: "/musteriler", label: "Müşteriler", icon: Users },
 ] as const;
 
-export function BottomNav() {
-  const pathname = usePathname();
-
+/** Tab bar markup; `pathname` null renders it without an active tab (Suspense fallback). */
+export function BottomNavBar({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Ana menü"
@@ -22,7 +21,7 @@ export function BottomNav() {
     >
       <ul className="mx-auto grid max-w-xl grid-cols-4">
         {TABS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const active = pathname !== null && (pathname === href || pathname.startsWith(`${href}/`));
           return (
             <li key={href}>
               <Link
@@ -42,4 +41,9 @@ export function BottomNav() {
       </ul>
     </nav>
   );
+}
+
+/** Active-tab aware nav. usePathname is request-time data, so render it inside <Suspense>. */
+export function BottomNav() {
+  return <BottomNavBar pathname={usePathname()} />;
 }

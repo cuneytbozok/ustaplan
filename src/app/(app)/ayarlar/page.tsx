@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { signOut } from "@/actions/auth";
+import { BackLink } from "@/components/common/back-link";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { PasswordForm } from "@/components/settings/password-form";
@@ -16,10 +16,7 @@ export const metadata: Metadata = { title: "Ayarlar" };
 export default function SettingsPage() {
   return (
     <>
-      <Link href="/bugun" className="-ml-2 flex h-11 w-fit items-center gap-1 rounded-xl px-2 text-sm font-medium text-muted-foreground hover:text-ink">
-        <ChevronLeft className="size-4" aria-hidden />
-        Bugün
-      </Link>
+      <BackLink href="/bugun" label="Bugün" />
       <PageHeader title="Ayarlar" />
 
       <Section title="Profil">

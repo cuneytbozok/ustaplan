@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { BottomNav } from "@/components/shell/bottom-nav";
+import { BottomNav, BottomNavBar } from "@/components/shell/bottom-nav";
 import { AppHeader } from "@/components/shell/app-header";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { getCurrentArtisan } from "@/lib/auth";
@@ -18,7 +18,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           <AuthGate>{children}</AuthGate>
         </Suspense>
       </main>
-      <BottomNav />
+      <Suspense fallback={<BottomNavBar pathname={null} />}>
+        <BottomNav />
+      </Suspense>
     </div>
   );
 }
