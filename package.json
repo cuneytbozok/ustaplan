@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "admin:create-artisan": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/create-artisan.ts",
-    "admin:reset-password": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/reset-password.ts"
+    "admin:reset-password": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/reset-password.ts",
+    "security-check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/security-check.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

@@ -3,16 +3,16 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M1.6 is Completed**: customers + addresses work locally, against dev RLS and on the owner's iPhone. Next: **M1.7** (`security-check.ts` v1), on the owner's instruction. M1.7 closes milestone M1, so run `npm run build` then.
+**Milestone M1 is complete** (M1.7 done: `npm run security-check` 89/89 PASS against dev). Commits are local (M1.6 close-out + M1.7); pushing needs approval. Next: **M2.1** 🔑 (migration `jobs`: `create_job`, `change_job_status`, `jobs_log_changes`), on the owner's instruction.
 
 ## Last completed task
-**M1.6** (`5fa757d`, pushed): customer list with Turkish-insensitive and phone search, create/edit, detail with Ara/WhatsApp, addresses with Haritada aç, delete only without jobs. Verified on the owner's iPhone (2026-10-18).
+**M1.7**: `scripts/security-check.ts` v1 (RLS isolation for every table, anon denial, storage isolation, workflow-column denial), with positive read and write controls. It creates tagged fixtures with the admin client and removes them in `finally`.
 
 ## Current or interrupted task
 None.
 
-## Files changed (M1.6)
-`src/actions/customers.ts`, `src/app/(app)/musteriler/{page,yeni/page,[id]/page,[id]/duzenle/page}.tsx`, `src/app/(app)/not-found.tsx`, `src/components/customers/{customer-form,customer-search,address-form,address-section}.tsx`, `src/components/common/{back-link,confirm-action,not-found-state}.tsx`, `src/lib/auth-action.ts`, `src/lib/domain/links.ts`, `phoneSearchDigits` in `src/lib/domain/phone.ts`, `src/components/shell/bottom-nav.tsx` + `src/app/(app)/layout.tsx` (Suspense fix), `src/app/(app)/ayarlar/page.tsx` (uses `BackLink`).
+## Files changed (M1.7)
+`scripts/security-check.ts` (new), `package.json` (`security-check` script), `README.md`, `docs/PROGRESS.md`, this file.
 
 ## Key decisions
 - **Cache Components rules learned:** (1) every Supabase render read needs `await connection()` first, because `getClaims` uses `Date.now()`, which runtime prerendering forbids; this lives in `createClient()`. (2) The layout's Suspense isn't enough for instant navigation: **each page must put its own request-time reads inside its own `<Suspense>`**, with the static parts outside. (3) The env read comes after `connection()`, so `npm run build` still needs no env (verified with `.env.local` moved aside; note `env -i` doesn't stop Next from loading `.env.local`).
@@ -33,10 +33,10 @@ M1.4: helper scratch run, local 360 px tab/sheet/logout run, the A/B count isola
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None. The M1.6 close-out tracker commit is local; push it with the next approved push.
+None after the M1.7 commit. Not pushed: M1.6 close-out + M1.7 (a push redeploys; no UI change).
 
 ## Exact next action
-On "start the next task", do **M1.7** `scripts/security-check.ts` v1: RLS isolation for every table, anon denial, storage isolation, workflow-column denial, against dev with roles A/B from `.env.local`; prints PASS/FAIL.
+On "start the next task", do **M2.1** 🔑: `npx supabase migration new jobs`, then hand-write `create_job` (optional inline customer + job + optional first appointment), `change_job_status` (rules J1–J6 in plan §7) and the `jobs_log_changes` trigger (price/visibility/share/title/address events) per DATA_MODEL §4–§5. All are `security definer` with `set search_path = ''`, assert `auth.uid()`, lock the job row, are idempotent, and `revoke execute … from public, anon` + `grant … to authenticated`. Test in a PGlite dry run first, **ask approval before `db push`**, regenerate types, then **re-run `npm run security-check`** (extend it if the new RPCs need cross-user checks, e.g. B calling `change_job_status` on A's job).
 
 ## Resume commands
 ```bash

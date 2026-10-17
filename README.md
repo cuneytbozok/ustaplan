@@ -58,6 +58,12 @@ npm run admin:reset-password -- --email usta@ornek.com
 
 Both print a generated temporary password once. Share it privately; the artisan changes it in Ayarlar.
 
+Security check against the **dev** project (run after every applied migration; needs `SUPABASE_SECRET_KEY` and the fake `TEST_ARTISAN_*` accounts in `.env.local`):
+
+```bash
+npm run security-check
+```
+
 Environment variables are validated lazily per feature (`src/lib/env.ts`), so the build works with none set. See [.env.example](.env.example) and IMPLEMENTATION_PLAN §11.3.
 
 ## Repository
