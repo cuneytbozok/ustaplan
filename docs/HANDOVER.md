@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M1.6 is In Progress**: customers + addresses are verified locally (as test artisan C) and against dev RLS. Waiting for push approval (deploy) and the owner's phone check, then M1.6 is closed. Next after that: **M1.7** (`security-check.ts` v1).
+**M1.6 is Completed**: customers + addresses work locally, against dev RLS and on the owner's iPhone. Next: **M1.7** (`security-check.ts` v1), on the owner's instruction. M1.7 closes milestone M1, so run `npm run build` then.
 
 ## Last completed task
-**M1.5** (`6cb7a66`, `5bb5bb6`, closed in `ae813ba`): Ayarlar + early web app manifest (T-11). Verified on the owner's iPhone.
+**M1.6** (`5fa757d`, pushed): customer list with Turkish-insensitive and phone search, create/edit, detail with Ara/WhatsApp, addresses with Haritada aç, delete only without jobs. Verified on the owner's iPhone (2026-10-18).
 
 ## Current or interrupted task
-**M1.6**: remaining: push (approval). On the phone (own account) the owner creates a customer with phone + address, searches without Turkish letters, taps Ara, WhatsApp and Haritada aç, then deletes a test customer. Then close (PROGRESS, HANDOVER, commit).
+None.
 
 ## Files changed (M1.6)
 `src/actions/customers.ts`, `src/app/(app)/musteriler/{page,yeni/page,[id]/page,[id]/duzenle/page}.tsx`, `src/app/(app)/not-found.tsx`, `src/components/customers/{customer-form,customer-search,address-form,address-section}.tsx`, `src/components/common/{back-link,confirm-action,not-found-state}.tsx`, `src/lib/auth-action.ts`, `src/lib/domain/links.ts`, `phoneSearchDigits` in `src/lib/domain/phone.ts`, `src/components/shell/bottom-nav.tsx` + `src/app/(app)/layout.tsx` (Suspense fix), `src/app/(app)/ayarlar/page.tsx` (uses `BackLink`).
@@ -33,10 +33,10 @@ M1.4: helper scratch run, local 360 px tab/sheet/logout run, the A/B count isola
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None after the M1.6 commit. Not pushed (M1.5 close-out + M1.6).
+None. The M1.6 close-out tracker commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask for push approval → push → the owner checks M1.6 on the phone → close M1.6. Then, on instruction, **M1.7** `scripts/security-check.ts` v1: RLS isolation for every table, anon denial, storage isolation, workflow-column denial, against dev with roles A/B from `.env.local`; prints PASS/FAIL.
+On "start the next task", do **M1.7** `scripts/security-check.ts` v1: RLS isolation for every table, anon denial, storage isolation, workflow-column denial, against dev with roles A/B from `.env.local`; prints PASS/FAIL.
 
 ## Resume commands
 ```bash
