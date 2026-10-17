@@ -8,8 +8,8 @@ import { ConfirmAction } from "@/components/common/confirm-action";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { AddressSection } from "@/components/customers/address-section";
+import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { createClient } from "@/lib/supabase/server";
-import { JOB_STATUS_LABELS } from "@/lib/domain/labels";
 import { whatsappHref } from "@/lib/domain/links";
 import { formatPhone, telHref } from "@/lib/domain/phone";
 import { formatShortDate } from "@/lib/domain/time";
@@ -112,8 +112,9 @@ async function CustomerDetail({ params }: { params: PageProps<"/musteriler/[id]"
             {customer.jobs.map((job) => (
               <li key={job.id} className="flex items-center justify-between gap-3 py-2.5">
                 <span className="min-w-0 truncate text-sm text-ink">{job.title}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS]} · {formatShortDate(job.created_at)}
+                <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                  {formatShortDate(job.created_at)}
+                  <JobStatusBadge status={job.status} />
                 </span>
               </li>
             ))}

@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ChevronRight, Plus, SearchX, Users } from "lucide-react";
-import { CustomerSearch } from "@/components/customers/customer-search";
 import { EmptyState } from "@/components/common/empty-state";
+import { SearchBox } from "@/components/common/search-box";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { createClient } from "@/lib/supabase/server";
-import { formatPhone, phoneSearchDigits } from "@/lib/domain/phone";
-import { foldTr } from "@/lib/domain/search-fold";
+import { formatPhone } from "@/lib/domain/phone";
+import { readQuery, searchKeyPattern } from "@/lib/search";
 
 export const metadata: Metadata = { title: "Müşteriler" };
 
@@ -26,7 +26,7 @@ export default function CustomersPage({ searchParams }: PageProps<"/musteriler">
         </Link>
       </div>
       <Suspense fallback={<div className="h-12 rounded-xl border border-border bg-surface" />}>
-        <CustomerSearch />
+        <SearchBox label="Müşteri ara" placeholder="Ad veya telefonla ara" />
       </Suspense>
       <Suspense fallback={<ListSkeleton />}>
         <CustomerList searchParams={searchParams} />
@@ -35,14 +35,9 @@ export default function CustomersPage({ searchParams }: PageProps<"/musteriler">
   );
 }
 
-/** Escapes LIKE wildcards so user input is matched literally. */
-function likePattern(value: string) {
-  return `%${value.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
-}
-
 async function CustomerList({ searchParams }: { searchParams: PageProps<"/musteriler">["searchParams"] }) {
   const { q } = await searchParams;
-  const query = (typeof q === "string" ? q : "").trim().slice(0, 100);
+  const query = readQuery(q);
 
   const supabase = await createClient();
   let request = supabase
@@ -50,7 +45,7 @@ async function CustomerList({ searchParams }: { searchParams: PageProps<"/muster
     .select("id, name, phone, customer_addresses(count)")
     .order("name")
     .limit(200);
-  if (query) request = request.ilike("search_key", likePattern(phoneSearchDigits(query) ?? foldTr(query)));
+  if (query) request = request.ilike("search_key", searchKeyPattern(query));
   const { data: customers, error } = await request;
   if (error) throw new Error(error.message);
 
