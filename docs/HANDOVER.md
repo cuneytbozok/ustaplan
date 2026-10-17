@@ -3,35 +3,33 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**M0.1 is In Progress**: the repo is initialised and the docs are committed locally; the push to GitHub waits for owner approval. No application code exists.
+**M0.1 is Completed**: the docs are on GitHub (`cuneytbozok/ustaplan`, public, branch `main`). No application code exists. Next: **M0.2**, on the owner's instruction.
 
 ## Last completed task
-P.5: plan v3.1 approved (see PROGRESS.md).
+**M0.1** 🔑: `git init -b main`, `.gitignore`, docs committed (`6c2e2ac`), `origin` set, pushed with owner approval. A tracker-update commit followed.
 
 ## Current or interrupted task
-**M0.1** 🔑, done when the docs are on GitHub.
-- Done: `git init -b main`; `.gitignore` (`.env*` except `.env.example`, `node_modules`, `.next`, `supabase/.temp`, `.vercel`, `.DS_Store`, `*.pem`); secret-pattern grep over all docs (no keys, JWTs, passwords or Supabase refs); commit `M0.1: initial project documentation`; `origin` = `https://github.com/cuneytbozok/ustaplan.git`.
-- Remaining: `git push -u origin main` **after explicit owner approval**. Then mark M0.1 Completed in PROGRESS.md, rewrite this file, commit and push the tracker update.
+None.
 
 ## Files changed
 `.gitignore` (new), `docs/PROGRESS.md`, `docs/HANDOVER.md`.
 
 ## Key decisions
-- The repo is public: `.gitignore` excludes every `.env*` except `.env.example`, plus `*.pem` and `.vercel/`.
-- Planning decisions are unchanged (see the previous handover content in git history and plan §15).
+- The repo is public: `.gitignore` excludes every `.env*` except `.env.example`, plus `*.pem`, `.vercel/`, `supabase/.temp/`, `.DS_Store`.
+- Planning decisions are unchanged (plan v3.1, §15).
 
 ## Tests executed
-Secret-pattern grep over the repo: no matches. No code to typecheck yet.
+Secret-pattern grep over the repo before the first push: no matches. `git ls-remote origin` shows `refs/heads/main` at the pushed commit.
 
 ## Known bugs and blockers
-- Waiting for push approval (M0.1).
 - KVKK legal review is open; it blocks only M6.3.
+- No Vercel project is connected yet, so pushes don't deploy until M0.4.
 
 ## Uncommitted changes
-None after the M0.1 commit.
+None.
 
 ## Exact next action
-On owner approval: `git push -u origin main`, then close M0.1 in the trackers. Then wait for "start the next task" (M0.2).
+When the owner says "start the next task", do **M0.2**: scaffold Next.js (strict TS, `src/`, `lang="tr"`, UstaPlan metadata), Tailwind tokens, shadcn init, ESLint, Vitest, scripts, `lib/env.ts` (lazy per-feature getters), `.env.example`, branded placeholder page. Done when typecheck, lint and build pass locally **with no env vars set**. Check current Next.js docs first.
 
 ## Resume commands
 ```bash

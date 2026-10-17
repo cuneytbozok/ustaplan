@@ -12,17 +12,17 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M0 |
-| Active task | **M0.1** 🔑 (In Progress: committed locally, awaiting push approval) |
-| Next task | M0.2 (after M0.1 is pushed) |
+| Active task | none |
+| Next task | **M0.2** (when the owner says "start the next task") |
 | Application code | **None exists yet** |
-| Implementation tasks | 37 total · 0 completed · 37 remaining |
+| Implementation tasks | 37 total · 1 completed · 36 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
 
 | Item | Needed for | Status |
 | --- | --- | --- |
-| Approve the first `git push` to public repo `cuneytbozok/ustaplan` | M0.1 | Ask at M0.1 |
+| Approve the first `git push` to public repo `cuneytbozok/ustaplan` | M0.1 | Done (approved 2026-10-17) |
 | Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Ask at M0.3 |
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Ask at M0.4 |
 | Approve each migration push to dev | M1.1, M2.1, M3.1, M5.1, M5.3, M5.8 | Ask per task |
@@ -48,7 +48,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M0 — Foundation, Supabase Cloud, Vercel · depends on P.5
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M0.1 🔑 | `git init`, `.gitignore`, commit docs, add remote, push (approval) | In Progress | Repo initialised on `main`; `.gitignore` added; secret-pattern grep over docs clean; docs committed; `origin` set. **Waiting for owner approval to push.** |
+| M0.1 🔑 | `git init`, `.gitignore`, commit docs, add remote, push (approval) | Completed | Repo on `main`; `.gitignore` added; secret-pattern grep over docs clean; commit `6c2e2ac` pushed with owner approval; `git ls-remote` shows `refs/heads/main` = `6c2e2ac` (2026-10-17) |
 | M0.2 | Scaffold Next.js + Tailwind tokens + shadcn init + ESLint + Vitest + scripts + `lib/env.ts` (lazy per-feature getters) + `.env.example` + branded placeholder; build passes with no env vars | Pending | |
 | M0.3 🔑 | Supabase dev project, signup off, `.env.local`, `supabase link` | Pending | |
 | M0.4 🔑 | Vercel project, env vars, `APP_BASE_URL`, first deploy (approval); open on phone | Pending | |
@@ -116,3 +116,4 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Date | Task | Commit | Evidence |
 | --- | --- | --- | --- |
 | 2026-10-17 | P.1–P.5 planning complete (plan v3.1 approved) | — (not a git repo yet) | Docs reviewed; stale-reference grep clean |
+| 2026-10-17 | M0.1 git init + docs on GitHub | `6c2e2ac` | Pushed with approval; remote `main` matches local |
