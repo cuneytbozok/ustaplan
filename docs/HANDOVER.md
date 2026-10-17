@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M2.4 is In Progress**: İş detayı works locally (all §7 manual transitions, edit, price history, timeline). Remaining: push (owner approval) + phone smoke, then close it.
+**M2.4 is Completed, so M2 is complete**: İş detayı works locally and on the owner's phone. Next: **M3.1** 🔑 (appointments migration), on the owner's instruction.
 
 ## Last completed task
-**M2.3** (`1858820`): İşler list with filters and search; owner verified on the iPhone.
+**M2.4** (`91f77dc`, pushed, Vercel deploy READY): İş detayı, status sheet, reopen, edit, price history, timeline. Owner verified it on the phone (2026-10-18).
 
 ## Current or interrupted task
-**M2.4** İş detayı — code committed locally, not pushed. Waiting for the owner to approve the push and check it on the phone.
+None.
 
 ## Files changed (M2.4)
 - New: `src/app/(app)/isler/[id]/page.tsx`, `src/app/(app)/isler/[id]/duzenle/page.tsx`, `src/components/jobs/{job-status-sheet,job-timeline,edit-job-form}.tsx`.
@@ -34,10 +34,10 @@ Local 360 px as C (see PROGRESS M2.4 row), typecheck, lint, `npm run build`, `se
 - Test data on dev (C): "Kombi bakımı" now unplanned with address Ev, prices 3.000 / 2.750, one cancelled fake appointment; new job "Klima montajı (test)" in progress.
 
 ## Uncommitted changes
-None after the M2.4 commit. Unpushed: the M2.3 close-out commit and the M2.4 commit.
+None. The M2.4 close-out tracker commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask the owner to approve `git push` (Vercel deploy), then they check `/isler/<id>` on the phone: open a job from İşler, change status, complete/cancel/reopen, edit a price and see it in Fiyat geçmişi. On OK, mark M2.4 Completed (PROGRESS + log row + this file), commit "M2.4: close task…". Then M3.1 🔑 on instruction.
+On "start the next task", do **M3.1** 🔑: migration `appointments` with `save_appointment` and `close_appointment` (DATA_MODEL §4, J2/J3), created with `npx supabase migration new appointments`, tested locally (PGlite harness), then **ask the owner before `supabase db push`** to dev. After it's applied: regenerate `src/types/database.ts` and re-run `security-check`.
 
 ## Resume commands
 ```bash
