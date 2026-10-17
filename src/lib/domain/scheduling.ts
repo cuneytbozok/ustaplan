@@ -114,3 +114,8 @@ export function readAppointmentFields(formData: FormData): Interval | { error: s
   if (!isValidDuration(duration)) return { error: "Süre 15 dakika ile 8 saat arasında olmalı." };
   return { start, end: addMinutes(start, duration) };
 }
+
+/** Today's Istanbul calendar date ("YYYY-MM-DD"). */
+export function istanbulToday(now: Date = new Date()) {
+  return istanbulDateKey(now);
+}
