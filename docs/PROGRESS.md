@@ -13,9 +13,9 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M0 |
 | Active task | none |
-| Next task | **M0.3** 🔑 (when the owner says "start the next task") |
+| Next task | **M0.4** 🔑 (when the owner says "start the next task") |
 | Application code | Next.js scaffold + branded placeholder (M0.2); no features yet |
-| Implementation tasks | 37 total · 2 completed · 35 remaining |
+| Implementation tasks | 37 total · 3 completed · 34 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
@@ -23,7 +23,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Item | Needed for | Status |
 | --- | --- | --- |
 | Approve the first `git push` to public repo `cuneytbozok/ustaplan` | M0.1 | Done (approved 2026-10-17) |
-| Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Ask at M0.3 |
+| Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Done: `xytwwudbnykackuxfeif`, Ireland (accepted, plan T-10) |
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Ask at M0.4 |
 | Approve each migration push to dev | M1.1, M2.1, M3.1, M5.1, M5.3, M5.8 | Ask per task |
 | Approve creating the fake test users in dev | M1.2 | Ask at M1.2 |
@@ -50,7 +50,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- | --- | --- |
 | M0.1 🔑 | `git init`, `.gitignore`, commit docs, add remote, push (approval) | Completed | Repo on `main`; `.gitignore` added; secret-pattern grep over docs clean; commit `6c2e2ac` pushed with owner approval; `git ls-remote` shows `refs/heads/main` = `6c2e2ac` (2026-10-17) |
 | M0.2 | Scaffold Next.js + Tailwind tokens + shadcn init + ESLint + Vitest + scripts + `lib/env.ts` (lazy per-feature getters) + `.env.example` + branded placeholder; build passes with no env vars | Completed | Next 16.4.2, React 19.3, Tailwind 4, shadcn (radix-nova), zod 4, Vitest 5. With an empty environment (`env -i`): `typecheck`, `lint`, `test` (no tests yet) and `build` all exit 0. Env getters checked by script: missing var → error naming it; `NEXT_PUBLIC_<secret>` → rejected; `APP_BASE_URL` trailing slash trimmed. Smoke at 360 px in the browser pane: tokens, system font, `lang=tr`, noindex, theme-color, U icon, no horizontal scroll, no console errors. `npm audit`: 5 high in the dev-only ESLint chain (`braces` via `eslint-config-next`); the only fix is a downgrade to Next 14's config, so accepted (2026-10-17) |
-| M0.3 🔑 | Supabase dev project, signup off, `.env.local`, `supabase link` | Pending | |
+| M0.3 🔑 | Supabase dev project, signup off, `.env.local`, `supabase link` | Completed | Owner created dev project `xytwwudbnykackuxfeif` (`eu-west-1`; a first one in Sydney was deleted; Ireland accepted by owner, plan T-10). `supabase` CLI 2.121 dev dep; `supabase init` (signup off in `config.toml` too). `supabase link` succeeded. `.env.local` has URL + publishable key. Auth settings: `disable_signup: true`, email provider on; signup attempt → 422 `signup_disabled`. `supabaseEnv()`/`appEnv()` read `.env.local` correctly. typecheck + lint pass (2026-10-17) |
 | M0.4 🔑 | Vercel project, env vars, `APP_BASE_URL`, first deploy (approval); open on phone | Pending | |
 
 ## M1 — Auth, RLS, customers and addresses · depends on M0
@@ -117,4 +117,5 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- | --- | --- |
 | 2026-10-17 | P.1–P.5 planning complete (plan v3.1 approved) | — (not a git repo yet) | Docs reviewed; stale-reference grep clean |
 | 2026-10-17 | M0.1 git init + docs on GitHub | `6c2e2ac` | Pushed with approval; remote `main` matches local |
-| 2026-10-17 | M0.2 Next.js scaffold | see `git log` (M0.2) | typecheck/lint/test/build pass with no env vars; 360 px smoke |
+| 2026-10-17 | M0.2 Next.js scaffold | `1c90c69` | typecheck/lint/test/build pass with no env vars; 360 px smoke |
+| 2026-10-17 | M0.3 Supabase dev project + link | see `git log` (M0.3) | link OK; signup → 422 `signup_disabled`; env read OK |

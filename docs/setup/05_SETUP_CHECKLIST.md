@@ -2,7 +2,7 @@
 
 ## Supabase
 
-- [ ] Create **two** Free projects in Frankfurt (eu-central-1): `ustaplan-dev` at the start of development (fake data only) and `ustaplan-prod` at pilot launch (real data only). Securely store their URLs and keys. No Docker or local Supabase is used; migrations go out with `supabase link` + `supabase db push`, each with owner approval.
+- [ ] Create **two** Free projects: `ustaplan-dev` (created in Ireland `eu-west-1`, accepted for fake data, plan T-10) at the start of development (fake data only) and `ustaplan-prod` in Frankfurt (eu-central-1) at pilot launch (real data only). Securely store their URLs and keys. No Docker or local Supabase is used; migrations go out with `supabase link` + `supabase db push`, each with owner approval.
 - [ ] Disable public new-user signups in the **Auth configuration**. There must be no public signup route or active API signup path. Verify by testing a signup attempt.
 - [ ] Keep email/password sign-in available; configure authenticated admin-created accounts appropriately (admin `createUser` with `email_confirm` as required so no invitation email is necessary).
 - [ ] Apply and review the hand-written migrations (`supabase/migrations/`) derived from [`03_SCHEMA_STARTER.sql`](../architecture/03_SCHEMA_STARTER.sql), not the starter blindly; enable/test owner-scoped RLS on every public table, and verify any required Data API grants.

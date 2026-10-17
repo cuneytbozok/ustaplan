@@ -302,7 +302,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 ### 11.1 Environments
 | Environment | Supabase | Vercel | Data |
 | --- | --- | --- | --- |
-| Local dev (`npm run dev`) | **ustaplan-dev** (Free, Frankfurt) | — | fake only |
+| Local dev (`npm run dev`) | **ustaplan-dev** (Free, Ireland `eu-west-1`, see T-10) | — | fake only |
 | Dev/test URL (M0 → M6) | ustaplan-dev | Production deployment on `<name>.vercel.app` | fake only |
 | Pilot (M6.3 →) | **ustaplan-prod** (second free project) | Same production deployment, env vars switched | real |
 
@@ -368,7 +368,7 @@ Tasks marked 🔑 need owner input or approval (dashboard work, secrets, migrati
 | --- | --- | --- |
 | M0.1 🔑 | `git init`, `.gitignore`, commit docs, remote `origin` → push (approval) | Docs on GitHub |
 | M0.2 | Scaffold Next.js (strict TS, `src/`, `lang="tr"`, UstaPlan metadata), Tailwind tokens, shadcn init, ESLint, Vitest, scripts, `lib/env.ts` (per-feature getters), `.env.example`, branded placeholder page | typecheck/lint/build pass locally **with no env vars set** |
-| M0.3 🔑 | Supabase **dev** project (Frankfurt), signup disabled, keys in `.env.local`, `supabase link` | `link` succeeds; the app reads env |
+| M0.3 🔑 | Supabase **dev** project (Ireland, T-10), signup disabled, keys in `.env.local`, `supabase link` | `link` succeeds; the app reads env |
 | M0.4 🔑 | Vercel project from GitHub, Production env vars, `APP_BASE_URL` = vercel.app URL, first deploy (approval) | Branded page opens on the owner's phone over HTTPS |
 
 ### M1 — Authentication, RLS, customers and addresses
@@ -491,6 +491,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | T-7 | **v3.1:** verification = typecheck/lint + smoke per task; build at milestone ends, before deploys, after significant changes; 3 Vitest files + security script mandatory where relevant | |
 | T-8 | **v3.1:** timestamped migration names from `supabase migration new` | |
 | T-9 | **v3.1:** env validated lazily per feature; the build needs no secrets | |
+| T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.3) stays in Frankfurt.** | |
 
 ---
 
