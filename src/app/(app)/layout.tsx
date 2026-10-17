@@ -1,29 +1,29 @@
 import { Suspense } from "react";
+import { BottomNav } from "@/components/shell/bottom-nav";
+import { AppHeader } from "@/components/shell/app-header";
+import { ListSkeleton } from "@/components/common/skeleton";
 import { getCurrentArtisan } from "@/lib/auth";
 
 /**
- * Guard for every artisan route. The session is verified on the server inside
- * a Suspense boundary (required by Cache Components); nothing below renders
- * until it passes. proxy.ts already redirects anonymous visitors optimistically.
+ * Artisan shell + guard. The session is verified on the server inside a
+ * Suspense boundary (Cache Components); page content renders only after it
+ * passes. proxy.ts already redirects anonymous visitors optimistically.
  */
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <Suspense fallback={<AppLoading />}>
-      <AuthGate>{children}</AuthGate>
-    </Suspense>
+    <div className="flex min-h-full flex-1 flex-col">
+      <AppHeader />
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-5 px-4 pt-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+        <Suspense fallback={<ListSkeleton />}>
+          <AuthGate>{children}</AuthGate>
+        </Suspense>
+      </main>
+      <BottomNav />
+    </div>
   );
 }
 
 async function AuthGate({ children }: { children: React.ReactNode }) {
   await getCurrentArtisan();
   return children;
-}
-
-function AppLoading() {
-  return (
-    <div className="flex flex-1 items-center justify-center" aria-busy="true">
-      <span className="sr-only">Yükleniyor…</span>
-      <div className="size-8 animate-pulse rounded-xl bg-primary-soft" aria-hidden />
-    </div>
-  );
 }
