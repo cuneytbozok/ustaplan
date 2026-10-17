@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M2.3 is In Progress**: the İşler list with filters and search is verified locally. Waiting for push approval (deploy) and the owner's phone smoke, then M2.3 is closed. Next after that: **M2.4** (İş detayı).
+**M2.3 is Completed**: the İşler list with filters and search works locally and on the owner's iPhone. Next: **M2.4** (İş detayı), on the owner's instruction.
 
 ## Last completed task
-**M2.2** (`ee90f49`, pushed; label tweak in the close-out commit): Yeni iş with recent-customer chips, inline customer, Diğer detaylar, idempotent `create_job`, FAB on the tab pages. Owner-requested label: the no-address radio reads **"Adres Seç"** (it means no address chosen for the job).
+**M2.3** (`1858820`, pushed): İşler with Açık/Tamamlanan/İptal, title + customer + phone search, status badges, shared `SearchBox`. Owner verified it on the phone (2026-10-18), including the M2.2 "Adres Seç" label.
 
 ## Current or interrupted task
-**M2.3**: remaining: push (approval; it also carries the M2.2 "Adres Seç" label). On the phone the owner switches Açık/Tamamlanan/İptal and searches by title, customer and phone. Then close (PROGRESS, HANDOVER, commit).
+None.
 
 ## Files changed (M2.3)
 `src/app/(app)/isler/page.tsx`, `src/components/jobs/job-status-badge.tsx`, `src/components/common/search-box.tsx` (was `customers/customer-search.tsx`), `src/lib/search.ts`, `src/app/(app)/musteriler/page.tsx` + `[id]/page.tsx` (shared search + badge).
@@ -39,10 +39,10 @@ M1.4: helper scratch run, local 360 px tab/sheet/logout run, the A/B count isola
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None after the M2.3 commit. Not pushed: M2.2 close-out ("Adres Seç") + M2.3.
+None. The M2.3 close-out tracker commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask for push approval → push → the owner smoke-tests İşler on the phone → close M2.3. Then, on instruction, **M2.4** İş detayı (`/isler/[id]`): edit (title, address, prices, show-price, private note, customer), price block + history from `job_events`, status sheet (`change_job_status`: start, wait_material, complete with confirmation listing the future appointments, cancel with optional note, reopen), timeline. Make the İşler rows and the customer-page job rows link to it, and switch the `createJob` redirect to `/isler/<id>`. Done when: all transitions behave per §7 and price edits appear in the history.
+On "start the next task", do **M2.4** İş detayı (`/isler/[id]`): edit (title, address, prices, show-price, private note, customer), price block + history from `job_events`, status sheet (`change_job_status`: start, wait_material, complete with confirmation listing the future appointments, cancel with optional note, reopen), timeline. Make the İşler rows and the customer-page job rows link to it, and switch the `createJob` redirect to `/isler/<id>`. Done when: all transitions behave per §7 and price edits appear in the history.
 
 ## Resume commands
 ```bash
