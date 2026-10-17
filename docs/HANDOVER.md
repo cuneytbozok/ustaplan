@@ -3,18 +3,19 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M3.4 is In Progress**: Takvim was verified on the owner's phone; the back-navigation fix the owner asked for works locally. Remaining: push (approval) + phone check, then close it.
+**M3.5 is In Progress**: Bugün (summary, today's visits, Takip gerekenler with quick actions) works locally. Remaining: push (approval) + phone smoke, then close it (that also completes M3).
 
 ## Last completed task
-**M3.3** (`73cce70`): appointment picker, conflict card, visit actions.
+**M3.4** (`fce794d`, `aad8d01`): Takvim + "Geri" back navigation; owner verified both on the phone.
 
 ## Current or interrupted task
-**M3.4**: Takvim (`fce794d`, pushed, owner OK) + "Geri" fix (committed locally, not pushed).
+**M3.5**: committed locally, not pushed.
 
-## Files changed (M3.4)
-`src/app/(app)/takvim/page.tsx`, `scheduling.ts` (`istanbulToday`). Back fix: `components/shell/navigation-marker.tsx` (new: marker, `canGoBack`, `useGoBack`), `components/common/back-link.tsx` ("Geri", no label prop), `(app)/layout.tsx`, all `BackLink` call sites, `actions/{jobs,customers,auth}.ts` (replace redirects; `updateJob`/`updateCustomer` return ok), `edit-job-form.tsx`, `customer-form.tsx`, both edit pages (`doneHref`).
+## Files changed (M3.5)
+`src/app/(app)/bugun/page.tsx` (rewritten), `src/components/today/complete-job-quick.tsx` (new), `appointments-section.tsx` (`initialEditing`, scroll, exported `CompleteVisitButton`), `isler/[id]/page.tsx` (`?planla=`), `src/lib/supabase/count.ts` (deleted).
 
 ## Key decisions
+- **M3.5:** "Takip gerekenler" = open jobs whose scheduled visits are all ended (overdue) or that have none; computed from one query (open jobs + embedded scheduled appointments). Quick "Yeniden planla"/"Randevu planla" link to the job with `?planla=` rather than duplicating the picker on Bugün. A delayed `scrollIntoView` is needed because the router scrolls to top after mount.
 - **Back navigation (M3.4, owner feedback):** "Geri" uses browser history only when this tab has navigated inside the app; otherwise the parent href. Every Server Action redirect uses `RedirectType.replace`; edit forms go back after `ok` (their actions call `refresh()` first, and the restored page showed fresh data). New pages with forms should follow the same pattern.
 - Note for browser tests: Next keeps earlier pages mounted but hidden, so `find`/DOM queries can return elements from hidden pages; filter by visibility.
 - **M3.4:** calendar state lives in the URL (`gorunum`, `tarih`), links use `replace`. Only `scheduled` visits are shown. Week rows group by the visit's Istanbul start day. Free gaps are computed in the page (display only), not in `scheduling.ts`.
@@ -26,19 +27,19 @@ _Rewritten at the end of every task. Last updated: 2026-10-18._
 - Earlier lessons still apply: each page wraps its reads in its own `<Suspense>`; render `NotFoundState` inline instead of `notFound()`; every artisan action starts with `actionContext()`.
 
 ## Tests executed
-M3.4: local 360 px Takvim flows and back-navigation flows as C (see PROGRESS), typecheck, lint, build.
+M3.5: local 360 px Bugün flows as C (see PROGRESS), typecheck, lint, test 18/18, build.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - Supabase advisor: leaked-password protection off (owner decision before the pilot).
 - KVKK legal review open; blocks only M6.3.
-- Test data on dev (C): Kombi bakımı (unplanned; visits: one completed, two cancelled), Petek temizliği (in progress, visit 19 Eki 10:00), "Batarya değişimi (test)" (scheduled, 19 Eki 10:00, clashes on purpose), "Klima montajı (test)" (in progress).
+- Test data on dev (C, all fake): Kombi bakımı (unplanned, no visit), Petek temizliği (in progress, ₺1.800, visit 19 Eki 10:00), "Batarya değişimi (test)" (visits 18 Eki 15:00 and 19 Eki 10:00, clashing on purpose), "Klima montajı (test)" (in progress, visit 17 Eki done), "Geri testi (test)" (completed). Customer note "Akşam arayın (test)".
 
 ## Uncommitted changes
-None. Unpushed: the back-navigation fix commit.
+None. Unpushed: the M3.4 close-out and the M3.5 commit.
 
 ## Exact next action
-Ask the owner to approve `git push`, then they check "Geri" on the phone (Takvim → job → Geri; customer → job → Geri; edit → save → Geri). On OK, mark M3.4 Completed and commit "M3.4: close task…". Then M3.5 (Bugün) on instruction.
+Ask the owner to approve `git push`, then they check Bugün on the phone (today's visit buttons, Takip gerekenler quick actions). On OK, mark M3.5 Completed (**M3 complete**) and commit "M3.5: close task…". Then M4.1 (image preparation + artisan photos) on instruction.
 
 ## Resume commands
 ```bash

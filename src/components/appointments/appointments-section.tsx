@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { CalendarClock, Check, Plus } from "lucide-react";
 import { closeAppointment, saveAppointment } from "@/actions/appointments";
 import { ConfirmAction } from "@/components/common/confirm-action";
@@ -58,7 +58,7 @@ function AppointmentForm({
   );
 }
 
-function CompleteVisitButton({ id }: { id: string }) {
+export function CompleteVisitButton({ id }: { id: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   return (
@@ -92,19 +92,30 @@ export function AppointmentsSection({
   isOpen,
   appointments,
   picker,
+  initialEditing = null,
 }: {
   jobId: string;
   isOpen: boolean;
   appointments: AppointmentItem[];
   picker: PickerDefaults;
+  /** "new" or a scheduled appointment id: open that form right away (Bugün quick actions, `?planla=`). */
+  initialEditing?: string | null;
 }) {
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(initialEditing);
+  const sectionRef = useRef<HTMLElement>(null);
+  // Opened from a link: the section streams in after navigation, so the #hash can't scroll to it,
+  // and the router's own scroll-to-top runs after mount. Scroll once that has happened.
+  useEffect(() => {
+    if (!initialEditing) return;
+    const timer = setTimeout(() => sectionRef.current?.scrollIntoView({ block: "start" }), 150);
+    return () => clearTimeout(timer);
+  }, [initialEditing]);
   const scheduled = appointments.filter((a) => a.status === "scheduled");
   const closed = appointments.filter((a) => a.status !== "scheduled" && a.status !== "superseded");
   const close = () => setEditing(null);
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-4">
+    <section ref={sectionRef} id="randevular" className="scroll-mt-20 rounded-2xl border border-border bg-surface p-4">
       <h2 className="mb-3 text-base font-semibold text-ink">Randevular</h2>
 
       {scheduled.length === 0 && editing !== "new" ? (

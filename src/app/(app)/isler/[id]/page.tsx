@@ -21,12 +21,12 @@ export const metadata: Metadata = { title: "İş" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default function JobPage({ params }: PageProps<"/isler/[id]">) {
+export default function JobPage({ params, searchParams }: PageProps<"/isler/[id]">) {
   return (
     <>
       <BackLink href="/isler" />
       <Suspense fallback={<ListSkeleton rows={4} />}>
-        <JobDetail params={params} />
+        <JobDetail params={params} searchParams={searchParams} />
       </Suspense>
     </>
   );
@@ -36,8 +36,14 @@ const cardClass = "rounded-2xl border border-border bg-surface p-4";
 const contactClass =
   "flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface text-base font-semibold text-ink hover:bg-muted";
 
-async function JobDetail({ params }: { params: PageProps<"/isler/[id]">["params"] }) {
-  const { id } = await params;
+async function JobDetail({
+  params,
+  searchParams,
+}: {
+  params: PageProps<"/isler/[id]">["params"];
+  searchParams: PageProps<"/isler/[id]">["searchParams"];
+}) {
+  const [{ id }, { planla }] = await Promise.all([params, searchParams]);
   if (!UUID.test(id)) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />;
 
   const supabase = await createClient();
@@ -149,6 +155,10 @@ async function JobDetail({ params }: { params: PageProps<"/isler/[id]">["params"
         isOpen={isOpen}
         appointments={job.appointments.map((a) => ({ ...a, overdue: a.status === "scheduled" && !hasNotEnded(a.ends_at) }))}
         picker={{ today, tomorrow, initial: { date, time, duration: DEFAULT_DURATION_MINUTES } }}
+        // ?planla=yeni or ?planla=<appointment id> (Bugün quick actions) opens that form.
+        initialEditing={
+          !isOpen ? null : planla === "yeni" ? "new" : job.appointments.find((a) => a.id === planla && a.status === "scheduled")?.id ?? null
+        }
       />
 
       <section className={cardClass}>
