@@ -11,9 +11,9 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | | |
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
-| Current milestone | M2 |
-| Active task | none |
-| Next task | **M3.1** 🔑 (when the owner says "start the next task") |
+| Current milestone | M3 |
+| Active task | **M3.1** 🔑 (In Progress: migration written and tested locally, waiting for approval to push to dev) |
+| Next task | M3.2 (after M3.1 is closed) |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` on dev |
 | Implementation tasks | 37 total · 15 completed · 22 remaining |
 | Last updated | 2026-10-18 |
@@ -77,7 +77,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M3 — Appointments, conflicts, calendar, Bugün · depends on M2
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M3.1 🔑 | Migration `appointments` (`save_appointment`, `close_appointment`) → dev (approval) | Pending | |
+| M3.1 🔑 | Migration `appointments` (`save_appointment`, `close_appointment`) → dev (approval) | In Progress | `supabase/migrations/20261017230457_appointments.sql` (CLI name). Job row locked first, then appointments. J2/J3 as in plan §7; reschedule supersedes + closes the open request; closed jobs refused; 15–480 min; idempotent repeats (T-13). **PGlite 38/38** (guards, cross-user not_found, durations, J2 on unplanned and kept for in_progress, reschedule chain + request closed, repeat calls, J3 both ways incl. "one of two", closed/reopened job, past visit, direct writes still denied). Also in this task: edit-form option renamed to "Adres Seç" (owner); timeline now labels `link_holder` events "Müşteri" (was checking a non-existent `customer` actor). typecheck, lint pass. **Remaining:** owner approval → `supabase db push` to dev, regenerate types, security-check, smoke |
 | M3.2 | `scheduling.ts` + Vitest | Pending | |
 | M3.3 | AppointmentPicker + ConflictCard; reschedule, complete, cancel a visit | Pending | |
 | M3.4 | Takvim day/week | Pending | |

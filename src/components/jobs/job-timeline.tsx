@@ -58,7 +58,7 @@ export function JobTimeline({ events }: { events: JobEvent[] }) {
             {detail ? <p className="text-sm break-words text-muted-foreground">{detail}</p> : null}
             <p className="text-xs text-muted-foreground">
               {formatShortDate(event.created_at)} {formatTime(event.created_at)}
-              {event.actor_type === "customer" ? " · Müşteri" : event.actor_type === "system" ? " · Sistem" : ""}
+              {event.actor_type === "link_holder" ? " · Müşteri" : event.actor_type === "system" ? " · Sistem" : ""}
             </p>
           </li>
         );

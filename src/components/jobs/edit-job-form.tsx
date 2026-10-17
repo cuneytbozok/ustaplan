@@ -62,7 +62,7 @@ export function EditJobForm({ action, customers, initial }: { action: Action; cu
       {addresses.length ? (
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium text-ink">Adres</legend>
-          {[{ id: "", label: null, address_text: "Adres yok" }, ...addresses].map((address) => (
+          {[{ id: "", label: null, address_text: "Adres Seç" }, ...addresses].map((address) => (
             <label key={address.id || "none"} className="flex min-h-11 items-center gap-3 rounded-xl border border-border px-3 py-2 text-sm text-ink">
               <input
                 type="radio"

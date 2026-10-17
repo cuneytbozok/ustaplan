@@ -3,29 +3,25 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M2.4 is Completed, so M2 is complete**: İş detayı works locally and on the owner's phone. Next: **M3.1** 🔑 (appointments migration), on the owner's instruction.
+**M3.1 is In Progress**: the `appointments` migration is written and passes PGlite 38/38. It's waiting for the owner's approval to `supabase db push` to dev.
 
 ## Last completed task
-**M2.4** (`91f77dc`, pushed, Vercel deploy READY): İş detayı, status sheet, reopen, edit, price history, timeline. Owner verified it on the phone (2026-10-18).
+**M2.4** (`91f77dc`, pushed): İş detayı. Owner verified it on the phone (M2 complete).
 
 ## Current or interrupted task
-None.
+**M3.1** 🔑: `supabase/migrations/20261017230457_appointments.sql` (`save_appointment`, `close_appointment`), not applied anywhere yet. Harness: `scratchpad/pgl/run-appts.mjs` in this session's scratchpad (not committed); args = core, jobs, appointments SQL.
 
-## Files changed (M2.4)
-- New: `src/app/(app)/isler/[id]/page.tsx`, `src/app/(app)/isler/[id]/duzenle/page.tsx`, `src/components/jobs/{job-status-sheet,job-timeline,edit-job-form}.tsx`.
-- Changed: `src/actions/jobs.ts` (`updateJob`, `changeJobStatus`; `createJob` → `/isler/<id>`), `src/lib/domain/labels.ts` (event + field labels), `money.ts` (`formatPriceInput`), `time.ts` (`hasNotEnded`), İşler and customer-page rows are now links.
+## Files changed (M3.1 so far)
+The migration; `docs/architecture/DATA_MODEL.md` (RPC results), `docs/IMPLEMENTATION_PLAN.md` (T-13); `src/components/jobs/edit-job-form.tsx` ("Adres Seç", owner request); `src/components/jobs/job-timeline.tsx` (`link_holder` actor fix).
 
 ## Key decisions
-- Edit = plain RLS update of the granted columns; history comes from `jobs_log_changes` (no new RPC). Composite FKs reject a foreign customer or a mismatched address (23503 → friendly message). Changing the customer clears the address choice.
-- Status changes go through `change_job_status`; `refresh()` after ok; the sheet closes only after the server confirmed. Closed jobs show a one-tap "İşi yeniden aç" (J5 creates nothing).
-- The complete/cancel confirmation lists `scheduled` appointments with `ends_at > now` (same rule as the RPC, T-12). A read-only Randevular list shows only when appointments exist; adding/editing visits is M3.3.
-- The artisan's cancel note is private ("Sadece sen görürsün"); it is shown on the job but not in the timeline payload.
-- Edit form's no-address option says **"Adres yok"** (clearer when removing an address); the Yeni iş form keeps the owner's "Adres Seç". Ask the owner if they want them identical.
+- **M3.1 (T-13):** idempotency of `save_appointment` = same job + same times returns the existing (or replacement) appointment; past times allowed; derived J2/J3 status changes write no separate event. Lock order: job, then appointment.
+- M2.4: edit = plain RLS update, history via `jobs_log_changes`; status via `change_job_status` + `refresh()`; the complete/cancel confirmation lists scheduled visits with `ends_at > now`.
 - `Date.now()` in a Server Component trips the `react-hooks/purity` lint; use helpers in `lib/domain/time.ts` (after `connection()`, which `createClient()` does).
 - Earlier lessons still apply: each page wraps its reads in its own `<Suspense>`; render `NotFoundState` inline instead of `notFound()`; every artisan action starts with `actionContext()`.
 
 ## Tests executed
-Local 360 px as C (see PROGRESS M2.4 row), typecheck, lint, `npm run build`, `security-check` 98/98.
+PGlite 38/38 for the appointments migration; typecheck, lint.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
@@ -34,10 +30,10 @@ Local 360 px as C (see PROGRESS M2.4 row), typecheck, lint, `npm run build`, `se
 - Test data on dev (C): "Kombi bakımı" now unplanned with address Ev, prices 3.000 / 2.750, one cancelled fake appointment; new job "Klima montajı (test)" in progress.
 
 ## Uncommitted changes
-None. The M2.4 close-out tracker commit is local; push it with the next approved push.
+None after the M3.1 WIP commit. Unpushed: the M2.4 close-out and the M3.1 WIP commits.
 
 ## Exact next action
-On "start the next task", do **M3.1** 🔑: migration `appointments` with `save_appointment` and `close_appointment` (DATA_MODEL §4, J2/J3), created with `npx supabase migration new appointments`, tested locally (PGlite harness), then **ask the owner before `supabase db push`** to dev. After it's applied: regenerate `src/types/database.ts` and re-run `security-check`.
+With the owner's approval: `npx supabase db push` (dev), `npx supabase gen types typescript --linked > src/types/database.ts`, `npm run security-check` (extend it with appointment RPC cross-user checks), quick live smoke of J2/J3 as C via RPC, then mark M3.1 Completed and commit. Then M3.2 on instruction.
 
 ## Resume commands
 ```bash
