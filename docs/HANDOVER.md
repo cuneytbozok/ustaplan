@@ -3,7 +3,7 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**M0.2 is Completed** (committed locally, **not pushed**): Next.js scaffold with design tokens, lazy env getters and a branded placeholder page. Next: **M0.3** 🔑 (Supabase dev project), on the owner's instruction.
+**M0.2 is Completed** and pushed to GitHub (`1c90c69`): Next.js scaffold with design tokens, lazy env getters and a branded placeholder page. Next: **M0.3** 🔑 (Supabase dev project), on the owner's instruction.
 
 ## Last completed task
 **M0.2**: scaffold via `create-next-app@latest` (Next 16.4.2, React 19.3, TS strict, `src/`, App Router, Tailwind 4, ESLint 9 flat config), then `shadcn init` (radix base, Nova preset), zod, Vitest, `server-only`.
@@ -31,7 +31,7 @@ With an empty environment: `npm run typecheck`, `lint`, `test`, `build` all exit
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None. **Local `main` is ahead of `origin` by the M0.2 commit; pushing needs owner approval** (no Vercel project yet, so it won't deploy).
+None. `1c90c69` (M0.2) is pushed with owner approval. Only this handover note commit is local; push it with the next approved push.
 
 ## Exact next action
 On "start the next task", do **M0.3** 🔑: ask the owner to create the Supabase **dev** project (Frankfurt), or to approve creating it via the connector. Disable signup, put the keys in `.env.local`, and run `npx supabase link` (the owner provides the DB password). Add the `supabase` CLI as a dev dependency.
