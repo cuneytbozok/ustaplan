@@ -3,16 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**M1.3 is In Progress**: login, logout and the route guard work locally with A and B. Waiting for push approval (deploy), then the owner's phone check, then M1.3 is closed.
+**M1.3 is Completed**: login, logout and the route guard work locally (A/B), in production and on the owner's phone. Next: **M1.4** (app shell, common components, domain helpers), on the owner's instruction.
 
 ## Last completed task
-**M1.2**: admin scripts + fake artisans A/B (pushed, `40a1523`).
+**M1.3** (`f477905`, pushed and deployed): Supabase SSR auth, proxy session refresh, `/giris`, the `(app)` guard, logout. The owner verified it on the phone with their own dev account (created via `admin:create-artisan`; its credentials are only with the owner).
 
 ## Current or interrupted task
-**M1.3**. Done locally (see PROGRESS evidence). Remaining:
-1. Push with approval (deploys to https://ustaplan.vercel.app).
-2. The owner logs in and out on the phone with test artisan A (credentials in `.env.local`; give them to the owner privately in chat only if asked, or create a personal account with `admin:create-artisan`).
-3. Mark Completed, update the trackers, commit.
+None.
 
 ## Files changed
 `src/lib/supabase/server.ts` (user-scoped client; `await connection()` then `cookies()`), `src/lib/supabase/proxy.ts` (`updateSession`: `getClaims`, optimistic redirects, cookies kept on redirects), `src/proxy.ts` (matcher skips `/t`, `/api/t`, `/api/internal`, `/gizlilik`, `_next`, files with extensions), `src/lib/auth.ts` (`getCurrentArtisan`, React `cache`), `src/actions/auth.ts`, `src/components/auth/login-form.tsx`, `src/app/giris/page.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/bugun/page.tsx`, `src/app/page.tsx` (redirect fallback), `package.json`/lock (`@supabase/ssr`).
@@ -25,17 +22,17 @@ _Rewritten at the end of every task. Last updated: 2026-10-17._
 - `/bugun` is a minimal landing (greeting + Çıkış yap). The real shell and Bugün screen come in M1.4+.
 
 ## Tests executed
-Local browser-pane run at 360 px (see PROGRESS), curl redirects, typecheck, lint, env-free build. Not yet: phone.
+Local browser-pane run at 360 px (see PROGRESS), curl redirects (local + prod), typecheck, lint, env-free build, owner's phone.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None after the M1.3 work commit. Not pushed.
+None. The M1.3 close-out tracker commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask for push approval → push → the owner tests login/logout on the phone → close M1.3 (PROGRESS, HANDOVER, commit).
+On "start the next task", do **M1.4**: app shell (header with bell + profile sheet with Ayarlar/Çıkış, bottom tabs Bugün · Takvim · İşler · Müşteriler, `+ Yeni iş` FAB), common components (skeleton, empty state, error + retry), domain helpers (`labels.ts`, money, time, phone, whatsapp, search-fold) per plan §2 and §10. Remember the Cache Components rules above (own `<Suspense>` per page). Each tab must be a real route, with no dead buttons.
 
 ## Resume commands
 ```bash

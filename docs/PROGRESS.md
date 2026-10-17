@@ -12,10 +12,10 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M1 |
-| Active task | **M1.3** (In Progress: verified locally, waiting for deploy + phone check) |
-| Next task | M1.4 (after M1.3 is closed) |
+| Active task | none |
+| Next task | **M1.4** (when the owner says "start the next task") |
 | Application code | Next.js scaffold + placeholder; DB schema `core` applied to dev (M1.1); no app features yet |
-| Implementation tasks | 37 total · 6 completed · 31 remaining |
+| Implementation tasks | 37 total · 7 completed · 30 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
@@ -59,7 +59,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- | --- | --- |
 | M1.1 🔑 | Migration `core` (via `supabase migration new`) → dev (approval); generate types | Completed | `supabase/migrations/20261017203619_core.sql`. Before the push: PGlite (PG 17) dry run with stubbed auth/storage, **41/41 checks** (cross-user RLS, anon denied, column grants, job insert/delete denied, consistency checks, set-null address, media checks, storage folder policies); `db push --dry-run` OK. Pushed with owner approval. Live dev: 10 tables with RLS, anon has no select, insert/delete grants exactly per §3, `jobs.status` not updatable, anon can't run `fold_tr`, 23 public + 3 storage policies, 2 private buckets (2 MB / 4 MB + MIME lists); anon REST → 42501; `supabase db advisors` → no issues. `src/types/database.ts` generated. typecheck + lint pass. **Not yet done:** the `security-check.ts` re-run (script arrives in M1.7). Docs: fixed the CLAUDE.md/DATA_MODEL `share_*` contradiction in favour of DATA_MODEL §3 (2026-10-17) |
 | M1.2 🔑 | Admin scripts (`create-artisan`, `reset-password`); create fake artisans A and B in dev (approval) | Completed | `scripts/create-artisan.ts`, `scripts/reset-password.ts`, `scripts/admin-shared.ts`, `src/lib/supabase/admin.ts`; npm scripts `admin:*` (tsx, `.env.local`, `react-server` condition). `SUPABASE_SECRET_KEY` piped from the CLI (`--reveal`) into `.env.local`, never displayed (owner-approved). **Rollback:** a forced profile-insert failure removed the auth user (0 users after). Created `usta-a@` / `usta-b@ustaplan.test` + profiles (owner-approved); credentials only in `.env.local` (`TEST_ARTISAN_*`). Live checks: A and B sign in and each sees only their own profile; after reset, B's old password → `invalid_credentials`, new one works; duplicate email (case-insensitive) and unknown email are refused. typecheck + lint pass (2026-10-17) |
-| M1.3 | Supabase clients, `proxy.ts`, `(app)` guard, `/giris`, logout; verify login with A and B | In Progress | Built: `lib/supabase/{server,proxy}.ts`, `src/proxy.ts`, `lib/auth.ts` (`getCurrentArtisan`, `getClaims`), `actions/auth.ts` (signIn/signOut), `/giris`, `(app)` layout guard, minimal `/bugun`. **Local (dev server, 360 px):** anonymous `/`, `/bugun`, `/takvim` → 307 `/giris`; `/t/…`, `/gizlilik`, `/icon.svg` bypass the proxy; wrong password → "E-posta veya şifre hatalı." (email kept); show/hide toggles; A logs in → "Merhaba, Test Usta A"; logout clears `sb-` cookies and `/bugun` → `/giris`; B logs in → B only; signed-in `/giris` and `/` → `/bugun`; no server errors. typecheck, lint, build **without `.env.local`** pass. **Remaining:** deploy (push approval) + login/logout on the owner's phone (2026-10-17) |
+| M1.3 | Supabase clients, `proxy.ts`, `(app)` guard, `/giris`, logout; verify login with A and B | Completed | Built: `lib/supabase/{server,proxy}.ts`, `src/proxy.ts`, `lib/auth.ts` (`getCurrentArtisan`, `getClaims`), `actions/auth.ts` (signIn/signOut), `/giris`, `(app)` layout guard, minimal `/bugun`. **Local (dev server, 360 px):** anonymous `/`, `/bugun`, `/takvim` → 307 `/giris`; `/t/…`, `/gizlilik`, `/icon.svg` bypass the proxy; wrong password → "E-posta veya şifre hatalı." (email kept); show/hide toggles; A logs in → "Merhaba, Test Usta A"; logout clears `sb-` cookies and `/bugun` → `/giris`; B logs in → B only; signed-in `/giris` and `/` → `/bugun`; no server errors. typecheck, lint, build **without `.env.local`** pass. **Production** (`f477905`, pushed with approval): anonymous `/` and `/bugun` → 307 `/giris`; the login page serves the forgot-password sentence. **Owner's phone** (own dev account created with `admin:create-artisan`): wrong password refused, login shows the name, logout returns to `/giris` (2026-10-17) |
 | M1.4 | App shell + common components + domain helpers | Pending | |
 | M1.5 | Ayarlar: profile + password change | Pending | |
 | M1.6 | Customers + addresses (list, search, CRUD, detail, delete rule) | Pending | |
@@ -123,3 +123,4 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-17 | M0.4 Vercel deploy (**M0 complete**) | `a9ceb52` | https://ustaplan.vercel.app opens on the owner's phone; build passed |
 | 2026-10-17 | M1.1 core migration on dev | `00754f7` | 41/41 PGlite checks; live catalog + advisors clean |
 | 2026-10-17 | M1.2 admin scripts + test artisans A/B | `40a1523` | rollback, sign-in, reset verified on dev |
+| 2026-10-17 | M1.3 login, guard, logout | `f477905` | local A/B flows; prod redirects; owner's phone OK |
