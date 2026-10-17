@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: { default: "UstaPlan", template: "%s · UstaPlan" },
   description: "Ustalar için iş, randevu ve müşteri takibi.",
   applicationName: "UstaPlan",
+  appleWebApp: { capable: true, title: "UstaPlan", statusBarStyle: "default" },
   robots: { index: false, follow: false },
 };
 

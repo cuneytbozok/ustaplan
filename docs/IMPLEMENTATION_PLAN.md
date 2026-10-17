@@ -425,7 +425,7 @@ Tasks marked 🔑 need owner input or approval (dashboard work, secrets, migrati
 | M5.2 | Customer photo upload and delete (magic bytes, rate limits, job state) + in-app notification | Upload on a completed job works; on a cancelled job it's refused; artisan photos can't be deleted through the link |
 | M5.3 🔑 | Migration `reschedule`: reschedule RPCs + `respond_to_request` (approval); customer RescheduleSheet (request, withdraw, accept); artisan RequestCard on Bugün and İş detayı | Request → counter → accept swaps atomically; the old appointment is untouched until then |
 | M5.4 | Inbox: bell + badge, `/bildirimler`, mark read | Badge updates after customer actions |
-| M5.5 | PWA: manifest, icons, `sw.js` (offline page + push and click handlers), install guide in Ayarlar | Installs on the phone; the app opens standalone |
+| M5.5 | PWA: `sw.js` (offline page + push and click handlers), install guide in Ayarlar. *(Manifest + icons were moved forward to M1.5, owner-approved 2026-10-18: without them iOS opened every non-start page in an in-app browser.)* | Installs on the phone; the app opens standalone |
 | M5.6 🔑 | Web Push: VAPID keys (owner adds them to Vercel), Ayarlar → Bildirimler (iOS gating, enable, disable, test), `push_subscriptions`, `lib/push.ts` | The test push arrives on the phone **with the app closed** |
 | M5.7 | Immediate pushes for cancel, reschedule request, counter accepted via `after()` | Each arrives once, without cron |
 | M5.8 🔑 | Dispatcher endpoint (reminders, digest, retries, cleanup) + migration `cron` + Vault secrets (owner runs the SQL template) (approval) | 1-hour reminder and 08:00 digest arrive on the phone; no duplicates |
@@ -491,6 +491,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | T-7 | **v3.1:** verification = typecheck/lint + smoke per task; build at milestone ends, before deploys, after significant changes; 3 Vitest files + security script mandatory where relevant | |
 | T-8 | **v3.1:** timestamped migration names from `supabase migration new` | |
 | T-9 | **v3.1:** env validated lazily per feature; the build needs no secrets | |
+| T-11 | **M1.5 (owner):** manifest (`scope: "/"`, `start_url: /bugun`, standalone) + apple-icon + 192/512 icons moved forward from M5.5 so the iOS home-screen app stays standalone across tabs. | |
 | T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.3) stays in Frankfurt.** | |
 
 ---
