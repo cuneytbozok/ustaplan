@@ -9,6 +9,8 @@ import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { AddressSection } from "@/components/customers/address-section";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
+import { PhotoGallery } from "@/components/media/photo-gallery";
+import { loadPhotos } from "@/lib/media/photos";
 import { createClient } from "@/lib/supabase/server";
 import { whatsappHref } from "@/lib/domain/links";
 import { formatPhone, telHref } from "@/lib/domain/phone";
@@ -43,6 +45,8 @@ async function CustomerDetail({ params }: { params: PageProps<"/musteriler/[id]"
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!customer) return <NotFoundState backHref="/musteriler" backLabel="Müşterilere dön" />; // includes other artisans' customers (RLS hides them)
+  const titles = new Map(customer.jobs.map((j) => [j.id, j.title]));
+  const photos = (await loadPhotos(supabase, customer.jobs.map((j) => j.id))).map((p) => ({ ...p, jobTitle: titles.get(p.jobId) }));
 
   return (
     <>
@@ -123,6 +127,13 @@ async function CustomerDetail({ params }: { params: PageProps<"/musteriler/[id]"
           </ul>
         )}
       </section>
+
+      {customer.jobs.length ? (
+        <section className="rounded-2xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-base font-semibold text-ink">Fotoğraflar</h2>
+          <PhotoGallery photos={photos} showJob emptyText="Bu müşterinin işlerinde fotoğraf yok. Fotoğrafları iş sayfasından ekleyebilirsin." />
+        </section>
+      ) : null}
 
       {customer.jobs.length === 0 ? (
         <ConfirmAction

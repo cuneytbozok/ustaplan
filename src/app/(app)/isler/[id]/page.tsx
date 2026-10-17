@@ -4,11 +4,13 @@ import { Suspense } from "react";
 import { MessageCircle, Navigation, Pencil, Phone } from "lucide-react";
 import { AppointmentsSection } from "@/components/appointments/appointments-section";
 import { BackLink } from "@/components/common/back-link";
+import { PhotoGallery } from "@/components/media/photo-gallery";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { JobStatusSheet, ReopenJobButton } from "@/components/jobs/job-status-sheet";
 import { describeEvent, JobTimeline } from "@/components/jobs/job-timeline";
+import { loadPhotos } from "@/lib/media/photos";
 import { createClient } from "@/lib/supabase/server";
 import { CANCEL_REASON_LABELS, OPEN_JOB_STATUSES } from "@/lib/domain/labels";
 import { mapHref, whatsappHref } from "@/lib/domain/links";
@@ -51,7 +53,7 @@ async function JobDetail({
     supabase
       .from("jobs")
       .select(
-        "id, title, status, private_note, estimated_price, agreed_price, show_price_to_customer, cancelled_by, cancelled_reason, cancelled_note, cancelled_at, completed_at, created_at, customers(id, name, phone), customer_addresses(label, address_text), appointments(id, starts_at, ends_at, status)",
+        "id, owner_user_id, title, status, private_note, estimated_price, agreed_price, show_price_to_customer, cancelled_by, cancelled_reason, cancelled_note, cancelled_at, completed_at, created_at, customers(id, name, phone), customer_addresses(label, address_text), appointments(id, starts_at, ends_at, status)",
       )
       .eq("id", id)
       .order("starts_at", { referencedTable: "appointments" })
@@ -62,6 +64,7 @@ async function JobDetail({
   if (eventsResult.error) throw new Error(eventsResult.error.message);
   const job = jobResult.data;
   if (!job) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />; // includes other artisans' jobs (RLS hides them)
+  const photos = await loadPhotos(supabase, [job.id]);
 
   const customer = job.customers;
   const address = job.customer_addresses;
@@ -194,6 +197,12 @@ async function JobDetail({
             </ul>
           </div>
         ) : null}
+      </section>
+
+      <section className={cardClass}>
+        <h2 className="mb-1 text-base font-semibold text-ink">Fotoğraflar</h2>
+        <p className="mb-3 text-xs text-muted-foreground">Fotoğraflar sadece sen görürsün; istediğini müşteriyle paylaşabilirsin.</p>
+        <PhotoGallery photos={photos} upload={{ jobId: job.id, ownerId: job.owner_user_id }} emptyText="Henüz fotoğraf yok." />
       </section>
 
       {job.private_note ? (

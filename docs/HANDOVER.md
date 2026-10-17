@@ -3,18 +3,19 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M3.5 is In Progress**: Bugün (summary, today's visits, Takip gerekenler with quick actions) works locally. Remaining: push (approval) + phone smoke, then close it (that also completes M3).
+**M4.1 is In Progress**: artisan photos (prepare → upload → register, share, delete, grid + viewer, customer page) work locally. Remaining: push (approval) + an iPhone HEIC upload from the owner's phone, then close it.
 
 ## Last completed task
-**M3.4** (`fce794d`, `aad8d01`): Takvim + "Geri" back navigation; owner verified both on the phone.
+**M3.5** (`32bd86e`): Bugün; owner verified it on the phone (**M3 complete**).
 
 ## Current or interrupted task
-**M3.5**: committed locally, not pushed.
+**M4.1**: committed locally, not pushed.
 
-## Files changed (M3.5)
-`src/app/(app)/bugun/page.tsx` (rewritten), `src/components/today/complete-job-quick.tsx` (new), `appointments-section.tsx` (`initialEditing`, scroll, exported `CompleteVisitButton`), `isler/[id]/page.tsx` (`?planla=`), `src/lib/supabase/count.ts` (deleted).
+## Files changed (M4.1)
+New: `src/lib/media/{prepare-image,photos}.ts`, `src/lib/supabase/browser.ts`, `src/actions/media.ts`, `src/components/media/photo-gallery.tsx`. Changed: `isler/[id]/page.tsx` (Fotoğraflar section), `musteriler/[id]/page.tsx` (photos of all jobs), `package.json`/lock (`heic2any` 0.0.4 exact).
 
 ## Key decisions
+- **M4.1:** the client never chooses the stored path for registration: `registerPhoto(jobId, mediaId)` rebuilds `<uid>/<job>/<media>.jpg`. Every prepared image is JPEG, so the server only accepts JPEG magic bytes for artisan uploads. Artisan photo uploads write no `job_events` (events are RPC/trigger-only); customer photos (M5.2) will. Test images can be generated with PIL (GPS EXIF) and `sips -s format heic` and served temporarily from `public/` (removed afterwards).
 - **M3.5:** "Takip gerekenler" = open jobs whose scheduled visits are all ended (overdue) or that have none; computed from one query (open jobs + embedded scheduled appointments). Quick "Yeniden planla"/"Randevu planla" link to the job with `?planla=` rather than duplicating the picker on Bugün. A delayed `scrollIntoView` is needed because the router scrolls to top after mount.
 - **Back navigation (M3.4, owner feedback):** "Geri" uses browser history only when this tab has navigated inside the app; otherwise the parent href. Every Server Action redirect uses `RedirectType.replace`; edit forms go back after `ok` (their actions call `refresh()` first, and the restored page showed fresh data). New pages with forms should follow the same pattern.
 - Note for browser tests: Next keeps earlier pages mounted but hidden, so `find`/DOM queries can return elements from hidden pages; filter by visibility.
@@ -27,7 +28,7 @@ _Rewritten at the end of every task. Last updated: 2026-10-18._
 - Earlier lessons still apply: each page wraps its reads in its own `<Suspense>`; render `NotFoundState` inline instead of `notFound()`; every artisan action starts with `actionContext()`.
 
 ## Tests executed
-M3.5: local 360 px Bugün flows as C (see PROGRESS), typecheck, lint, test 18/18, build.
+M4.1: local 360 px upload/share/delete flows with a GPS-tagged JPEG and a HEIC (stored files inspected with PIL), security-check 105/105, typecheck, lint, build.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
@@ -36,10 +37,10 @@ M3.5: local 360 px Bugün flows as C (see PROGRESS), typecheck, lint, test 18/18
 - Test data on dev (C, all fake): Kombi bakımı (unplanned, no visit), Petek temizliği (in progress, ₺1.800, visit 19 Eki 10:00), "Batarya değişimi (test)" (visits 18 Eki 15:00 and 19 Eki 10:00, clashing on purpose), "Klima montajı (test)" (in progress, visit 17 Eki done), "Geri testi (test)" (completed). Customer note "Akşam arayın (test)".
 
 ## Uncommitted changes
-None. Unpushed: the M3.4 close-out and the M3.5 commit.
+None. Unpushed: the M3.5 close-out and the M4.1 commit.
 
 ## Exact next action
-Ask the owner to approve `git push`, then they check Bugün on the phone (today's visit buttons, Takip gerekenler quick actions). On OK, mark M3.5 Completed (**M3 complete**) and commit "M3.5: close task…". Then M4.1 (image preparation + artisan photos) on instruction.
+Ask the owner to approve `git push`, then they upload an iPhone photo (HEIC) on a job, check it appears, toggle "Müşteriyle paylaş" and delete one. Optionally check the stored size/EXIF with the admin client. On OK, mark M4.1 Completed and commit "M4.1: close task…". Then M4.2 (voice notes) on instruction.
 
 ## Resume commands
 ```bash
