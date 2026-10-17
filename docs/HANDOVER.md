@@ -3,18 +3,19 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M4.1 is In Progress**: artisan photos (prepare → upload → register, share, delete, grid + viewer, customer page) work locally. Remaining: push (approval) + an iPhone HEIC upload from the owner's phone, then close it.
+**M4.2 is In Progress**: voice notes (record ≤ 60 s, list, play, delete) work locally. Remaining: push (approval) + record/play on the owner's phone, then close it.
 
 ## Last completed task
-**M3.5** (`32bd86e`): Bugün; owner verified it on the phone (**M3 complete**).
+**M4.1** (`96a7b06`): artisan photos; owner's iPhone photo stored at 492 KB without GPS.
 
 ## Current or interrupted task
-**M4.1**: committed locally, not pushed.
+**M4.2**: committed locally, not pushed.
 
-## Files changed (M4.1)
-New: `src/lib/media/{prepare-image,photos}.ts`, `src/lib/supabase/browser.ts`, `src/actions/media.ts`, `src/components/media/photo-gallery.tsx`. Changed: `isler/[id]/page.tsx` (Fotoğraflar section), `musteriler/[id]/page.tsx` (photos of all jobs), `package.json`/lock (`heic2any` 0.0.4 exact).
+## Files changed (M4.2)
+New: `src/components/media/voice-notes.tsx`, `src/lib/media/voice-notes.ts`. Changed: `src/actions/media.ts` (`registerVoiceNote`; `deletePhoto` → `deleteMedia`), `photo-gallery.tsx` (uses `deleteMedia`), `isler/[id]/page.tsx` (Ses notları section).
 
 ## Key decisions
+- **M4.2:** the recorder's own timer is the duration source (clamped 1–60 server-side); MP4 is preferred whenever supported so iPhone and most Chrome builds record the same container. Upload content types are the base MIME (`audio/mp4`, `audio/webm`, `audio/ogg`) because the bucket allowlist has no codec parameters. Browser tests: replace `navigator.mediaDevices.getUserMedia` with a Web Audio oscillator stream.
 - **M4.1:** the client never chooses the stored path for registration: `registerPhoto(jobId, mediaId)` rebuilds `<uid>/<job>/<media>.jpg`. Every prepared image is JPEG, so the server only accepts JPEG magic bytes for artisan uploads. Artisan photo uploads write no `job_events` (events are RPC/trigger-only); customer photos (M5.2) will. Test images can be generated with PIL (GPS EXIF) and `sips -s format heic` and served temporarily from `public/` (removed afterwards).
 - **M3.5:** "Takip gerekenler" = open jobs whose scheduled visits are all ended (overdue) or that have none; computed from one query (open jobs + embedded scheduled appointments). Quick "Yeniden planla"/"Randevu planla" link to the job with `?planla=` rather than duplicating the picker on Bugün. A delayed `scrollIntoView` is needed because the router scrolls to top after mount.
 - **Back navigation (M3.4, owner feedback):** "Geri" uses browser history only when this tab has navigated inside the app; otherwise the parent href. Every Server Action redirect uses `RedirectType.replace`; edit forms go back after `ok` (their actions call `refresh()` first, and the restored page showed fresh data). New pages with forms should follow the same pattern.
@@ -28,7 +29,7 @@ New: `src/lib/media/{prepare-image,photos}.ts`, `src/lib/supabase/browser.ts`, `
 - Earlier lessons still apply: each page wraps its reads in its own `<Suspense>`; render `NotFoundState` inline instead of `notFound()`; every artisan action starts with `actionContext()`.
 
 ## Tests executed
-M4.1: local 360 px upload/share/delete flows with a GPS-tagged JPEG and a HEIC (stored files inspected with PIL), security-check 105/105, typecheck, lint, build.
+M4.2: local 360 px record/play/discard/delete/60 s-cap flows with a synthetic tone, stored row checked with the admin client; security-check 105/105; typecheck, lint, build.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
@@ -37,10 +38,10 @@ M4.1: local 360 px upload/share/delete flows with a GPS-tagged JPEG and a HEIC (
 - Test data on dev (C, all fake): Kombi bakımı (unplanned, no visit), Petek temizliği (in progress, ₺1.800, visit 19 Eki 10:00), "Batarya değişimi (test)" (visits 18 Eki 15:00 and 19 Eki 10:00, clashing on purpose), "Klima montajı (test)" (in progress, visit 17 Eki done), "Geri testi (test)" (completed). Customer note "Akşam arayın (test)".
 
 ## Uncommitted changes
-None. Unpushed: the M3.5 close-out and the M4.1 commit.
+None. Unpushed: the M4.1 close-out and the M4.2 commit.
 
 ## Exact next action
-Ask the owner to approve `git push`, then they upload an iPhone photo (HEIC) on a job, check it appears, toggle "Müşteriyle paylaş" and delete one. Optionally check the stored size/EXIF with the admin client. On OK, mark M4.1 Completed and commit "M4.1: close task…". Then M4.2 (voice notes) on instruction.
+Ask the owner to approve `git push`, then they record a short voice note on a job (allow the microphone), play it back and delete one. On OK, mark M4.2 Completed and commit "M4.2: close task…". Then M4.3 (`share-link.ts` + DTO + `/t/[token]`) on instruction.
 
 ## Resume commands
 ```bash

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
-import { deletePhoto, registerPhoto, setPhotoShared } from "@/actions/media";
+import { deleteMedia, registerPhoto, setPhotoShared } from "@/actions/media";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { prepareImage } from "@/lib/media/prepare-image";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
@@ -87,7 +87,7 @@ function Viewer({ photo, onClose, showJob }: { photo: GalleryPhoto; onClose: () 
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const run = (action: () => ReturnType<typeof deletePhoto>, closeAfter: boolean) =>
+  const run = (action: () => ReturnType<typeof deleteMedia>, closeAfter: boolean) =>
     startTransition(async () => {
       const result = await action();
       if (!result.ok) setError(result.error);
@@ -136,7 +136,7 @@ function Viewer({ photo, onClose, showJob }: { photo: GalleryPhoto; onClose: () 
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => deletePhoto(photo.id), true)}
+                onClick={() => run(() => deleteMedia(photo.id), true)}
                 className="h-11 rounded-xl bg-danger text-sm font-semibold text-white hover:bg-danger/90 disabled:opacity-70"
               >
                 {pending ? "Siliniyor…" : "Sil"}

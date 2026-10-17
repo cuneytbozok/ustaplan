@@ -5,12 +5,14 @@ import { MessageCircle, Navigation, Pencil, Phone } from "lucide-react";
 import { AppointmentsSection } from "@/components/appointments/appointments-section";
 import { BackLink } from "@/components/common/back-link";
 import { PhotoGallery } from "@/components/media/photo-gallery";
+import { VoiceNotes } from "@/components/media/voice-notes";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { JobStatusSheet, ReopenJobButton } from "@/components/jobs/job-status-sheet";
 import { describeEvent, JobTimeline } from "@/components/jobs/job-timeline";
 import { loadPhotos } from "@/lib/media/photos";
+import { loadVoiceNotes } from "@/lib/media/voice-notes";
 import { createClient } from "@/lib/supabase/server";
 import { CANCEL_REASON_LABELS, OPEN_JOB_STATUSES } from "@/lib/domain/labels";
 import { mapHref, whatsappHref } from "@/lib/domain/links";
@@ -64,7 +66,7 @@ async function JobDetail({
   if (eventsResult.error) throw new Error(eventsResult.error.message);
   const job = jobResult.data;
   if (!job) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />; // includes other artisans' jobs (RLS hides them)
-  const photos = await loadPhotos(supabase, [job.id]);
+  const [photos, voiceNotes] = await Promise.all([loadPhotos(supabase, [job.id]), loadVoiceNotes(supabase, job.id)]);
 
   const customer = job.customers;
   const address = job.customer_addresses;
@@ -203,6 +205,12 @@ async function JobDetail({
         <h2 className="mb-1 text-base font-semibold text-ink">Fotoğraflar</h2>
         <p className="mb-3 text-xs text-muted-foreground">Fotoğraflar sadece sen görürsün; istediğini müşteriyle paylaşabilirsin.</p>
         <PhotoGallery photos={photos} upload={{ jobId: job.id, ownerId: job.owner_user_id }} emptyText="Henüz fotoğraf yok." />
+      </section>
+
+      <section className={cardClass}>
+        <h2 className="mb-1 text-base font-semibold text-ink">Ses notları</h2>
+        <p className="mb-3 text-xs text-muted-foreground">Sadece sen görürsün.</p>
+        <VoiceNotes notes={voiceNotes} jobId={job.id} ownerId={job.owner_user_id} />
       </section>
 
       {job.private_note ? (
