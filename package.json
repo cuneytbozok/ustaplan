@@ -8,9 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "admin:create-artisan": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/create-artisan.ts",
+    "admin:reset-password": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/reset-password.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "lucide-react": "^1.59.0",
@@ -32,6 +35,7 @@
     "eslint-config-next": "16.4.2",
     "supabase": "^2.121.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.5"
   },

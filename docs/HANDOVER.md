@@ -3,37 +3,36 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**M1.1 is Completed**: the `core` schema is applied to Supabase dev and the types are generated. Commits are local (M0.4 + M1.1), and **pushing needs owner approval** (a push deploys). Next: **M1.2** 🔑 (admin scripts + fake artisans A/B).
+**M1.2 is Completed** (committed locally, not pushed): admin scripts exist, and fake artisans A and B exist in Supabase dev. Next: **M1.3** (Supabase clients, `proxy.ts`, `(app)` guard, `/giris`, logout).
 
 ## Last completed task
-**M1.1** 🔑: `supabase/migrations/20261017203619_core.sql` (DATA_MODEL §2, §3, §5 `touch_updated_at`, §6). The owner approved `db push`; it applied cleanly. `src/types/database.ts` was regenerated.
+**M1.2** 🔑: `npm run admin:create-artisan -- --email … --name …` and `npm run admin:reset-password -- --email …`. Both print a generated temporary password once. Create rolls back the auth user if the profile insert fails.
 
 ## Current or interrupted task
 None.
 
 ## Files changed
-`supabase/migrations/20261017203619_core.sql` (new), `src/types/database.ts` (generated), `CLAUDE.md`, `docs/architecture/DATA_MODEL.md`, `docs/PROGRESS.md`, this file.
+`scripts/{create-artisan,reset-password,admin-shared}.ts`, `src/lib/supabase/admin.ts` (secret-key client, `server-only`), `package.json`/lock (`@supabase/supabase-js`, dev `tsx`, `admin:*` scripts), `.env.example`, `README.md`, `docs/PROGRESS.md`, this file.
 
 ## Key decisions
-- **`share_enabled`/`share_version`**: CLAUDE.md said RPC-only, while DATA_MODEL §3 grants them as plain updates (and there's no RPC for them among the 9). I followed §3 and corrected CLAUDE.md and the §2 labels. The M2.1 `jobs_log_changes` trigger logs these changes.
-- The migration revokes `anon` from public-schema default privileges. **Every future function must `revoke execute … from public, anon`** (now documented in DATA_MODEL §3).
-- Added `default auth.uid()` on `owner_user_id` for directly inserted tables (customers, addresses, job_media, push_subscriptions). RLS still enforces ownership.
-- Extra checks implied by DATA_MODEL text: appointments `closed_at` ⇔ not scheduled, and `replaced_by_id` only when superseded; requests `resolved_at` ⇔ terminal and `resulting_appointment_id` ⇔ accepted; media `deleted_at` ⇔ `deleted_by`, plus the duration rule. M3.1 and M5.3 RPCs must satisfy them.
-- CLI on this Mac: `supabase db push` and `db query --linked` work via the access token (no DB password needed). `npx supabase db advisors --linked` is a free extra check.
-- Pre-push SQL testing: a PGlite harness lives in the scratchpad only (not committed). Recreate it if needed: `@electric-sql/pglite` with stub `auth`/`storage` schemas and roles.
+- Scripts run with `tsx --env-file-if-exists=.env.local --conditions=react-server`. The condition lets them import the `server-only` modules (`lib/env.ts`, `lib/supabase/admin.ts`). tsx compiles `.ts` as CJS, so scripts use `async function main()` rather than top-level await.
+- `npx supabase projects api-keys` **masks secret keys unless `--reveal`** is passed. The key was piped into `.env.local` with `--reveal`, never echoed.
+- The test artisans' credentials live only in `.env.local` as `TEST_ARTISAN_{A,B}_{EMAIL,PASSWORD}` (names in `.env.example`) for `security-check.ts` (M1.7) and for login checks in M1.3. Never print them.
+- zsh in this environment doesn't word-split variables; use shell functions, not `$CMD` strings.
+- Dev users: A `usta-a@ustaplan.test` (c16bd787-…), B `usta-b@ustaplan.test` (a7531534-…).
 
 ## Tests executed
-PGlite 41/41. Live: `migration list` in sync; catalog checks (RLS, grants, buckets, policy counts); anon REST 42501; advisors clean. `npm run typecheck` and `lint` pass. `scripts/security-check.ts` doesn't exist yet (M1.7).
+Rollback (forced profile 500) → no user left. A and B sign in via the publishable key and see only their own profile (live RLS). Reset: old password `invalid_credentials`, new one OK. Duplicate and unknown email refused. `npm run typecheck` and `lint` pass.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None. `main` is ahead of `origin` by 2 commits (M0.4 trackers, M1.1). The owner asked to push them together after M1.1 → ask for approval.
+None. The M1.2 commit is local; **pushing needs owner approval** (a push deploys; nothing user-visible changes).
 
 ## Exact next action
-On "start the next task", do **M1.2** 🔑: `npm i -D tsx`. Write `scripts/create-artisan.ts --email --name` (auth admin `createUser` with `email_confirm: true` plus a `profiles` row, roll back the user on failure, print a generated temp password once) and `scripts/reset-password.ts --email`, using `adminEnv()` (needs `SUPABASE_SECRET_KEY` in `.env.local`; the owner pastes it, it's never shown in chat). Ask approval, then create fake artisans A and B in dev.
+On "start the next task", do **M1.3**. Read `node_modules/next/dist/docs` (proxy, authentication, `authentication-with-cache-components` since `cacheComponents` is on) and the current `@supabase/ssr` docs first. Then build `lib/supabase/{server,browser}.ts`, `src/proxy.ts` (refresh session; skip `/t`, `/api/t`, `/api/internal`, `/gizlilik`, static assets), the `(app)` layout guard using `getClaims()`/`getUser()`, `/giris` (email, password show/hide, fixed forgot-password sentence) and logout. Verify login with A and B locally and on the phone (needs a push).
 
 ## Resume commands
 ```bash
@@ -43,5 +42,5 @@ cd /Users/cuneytbozok/Documents/Projeler/Ustaplan
 git status && git log --oneline -15
 ```
 ```bash
-npx supabase migration list
+npm ci && npm run typecheck && npm run lint
 ```

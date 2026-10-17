@@ -49,6 +49,15 @@ npm test                     # Vitest, critical logic only
 npm run build
 ```
 
+Admin (local only, needs `SUPABASE_SECRET_KEY` in `.env.local`; there is no signup):
+
+```bash
+npm run admin:create-artisan -- --email usta@ornek.com --name "Ahmet Usta"
+npm run admin:reset-password -- --email usta@ornek.com
+```
+
+Both print a generated temporary password once. Share it privately; the artisan changes it in Ayarlar.
+
 Environment variables are validated lazily per feature (`src/lib/env.ts`), so the build works with none set. See [.env.example](.env.example) and IMPLEMENTATION_PLAN §11.3.
 
 ## Repository

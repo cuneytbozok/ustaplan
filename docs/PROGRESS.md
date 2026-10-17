@@ -13,9 +13,9 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M1 |
 | Active task | none |
-| Next task | **M1.2** 🔑 (when the owner says "start the next task") |
+| Next task | **M1.3** (when the owner says "start the next task") |
 | Application code | Next.js scaffold + placeholder; DB schema `core` applied to dev (M1.1); no app features yet |
-| Implementation tasks | 37 total · 5 completed · 32 remaining |
+| Implementation tasks | 37 total · 6 completed · 31 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
@@ -27,7 +27,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Done: project `ustaplan`, https://ustaplan.vercel.app |
 | Set Vercel Function Region to Dublin (`dub1`), near the Ireland DB (default is `iad1`) | before M1.3 | Done: owner set Dublin (2026-10-17) |
 | Approve each migration push to dev | M1.1 ✓, M2.1, M3.1, M5.1, M5.3, M5.8 | Ask per task (M1.1 approved 2026-10-17) |
-| Approve creating the fake test users in dev | M1.2 | Ask at M1.2 |
+| Approve creating the fake test users in dev | M1.2 | Done (approved 2026-10-17) |
 | Add VAPID keys to Vercel; run the Vault secrets SQL template | M5.6, M5.8 | Ask per task |
 | A phone for testing (an iPhone 16.4+ and/or Android for push) | from M0.4 | Assumed available |
 | KVKK legal review (notice + cross-border transfer) | M6.3 (real customer data) | Open |
@@ -58,7 +58,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
 | M1.1 🔑 | Migration `core` (via `supabase migration new`) → dev (approval); generate types | Completed | `supabase/migrations/20261017203619_core.sql`. Before the push: PGlite (PG 17) dry run with stubbed auth/storage, **41/41 checks** (cross-user RLS, anon denied, column grants, job insert/delete denied, consistency checks, set-null address, media checks, storage folder policies); `db push --dry-run` OK. Pushed with owner approval. Live dev: 10 tables with RLS, anon has no select, insert/delete grants exactly per §3, `jobs.status` not updatable, anon can't run `fold_tr`, 23 public + 3 storage policies, 2 private buckets (2 MB / 4 MB + MIME lists); anon REST → 42501; `supabase db advisors` → no issues. `src/types/database.ts` generated. typecheck + lint pass. **Not yet done:** the `security-check.ts` re-run (script arrives in M1.7). Docs: fixed the CLAUDE.md/DATA_MODEL `share_*` contradiction in favour of DATA_MODEL §3 (2026-10-17) |
-| M1.2 🔑 | Admin scripts (`create-artisan`, `reset-password`); create fake artisans A and B in dev (approval) | Pending | |
+| M1.2 🔑 | Admin scripts (`create-artisan`, `reset-password`); create fake artisans A and B in dev (approval) | Completed | `scripts/create-artisan.ts`, `scripts/reset-password.ts`, `scripts/admin-shared.ts`, `src/lib/supabase/admin.ts`; npm scripts `admin:*` (tsx, `.env.local`, `react-server` condition). `SUPABASE_SECRET_KEY` piped from the CLI (`--reveal`) into `.env.local`, never displayed (owner-approved). **Rollback:** a forced profile-insert failure removed the auth user (0 users after). Created `usta-a@` / `usta-b@ustaplan.test` + profiles (owner-approved); credentials only in `.env.local` (`TEST_ARTISAN_*`). Live checks: A and B sign in and each sees only their own profile; after reset, B's old password → `invalid_credentials`, new one works; duplicate email (case-insensitive) and unknown email are refused. typecheck + lint pass (2026-10-17) |
 | M1.3 | Supabase clients, `proxy.ts`, `(app)` guard, `/giris`, logout; verify login with A and B | Pending | |
 | M1.4 | App shell + common components + domain helpers | Pending | |
 | M1.5 | Ayarlar: profile + password change | Pending | |
@@ -121,4 +121,5 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-17 | M0.2 Next.js scaffold | `1c90c69` | typecheck/lint/test/build pass with no env vars; 360 px smoke |
 | 2026-10-17 | M0.3 Supabase dev project + link | `65fac03` | link OK; signup → 422 `signup_disabled`; env read OK |
 | 2026-10-17 | M0.4 Vercel deploy (**M0 complete**) | `a9ceb52` | https://ustaplan.vercel.app opens on the owner's phone; build passed |
-| 2026-10-17 | M1.1 core migration on dev | see `git log` (M1.1) | 41/41 PGlite checks; live catalog + advisors clean |
+| 2026-10-17 | M1.1 core migration on dev | `00754f7` | 41/41 PGlite checks; live catalog + advisors clean |
+| 2026-10-17 | M1.2 admin scripts + test artisans A/B | see `git log` (M1.2) | rollback, sign-in, reset verified on dev |
