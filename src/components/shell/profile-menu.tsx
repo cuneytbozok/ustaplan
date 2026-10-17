@@ -1,10 +1,11 @@
 "use client";
 
-import { LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Settings, UserRound } from "lucide-react";
 import { signOut } from "@/actions/auth";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-/** Profile sheet from the header. Ayarlar joins it in M1.5 (no dead links). */
+/** Profile sheet from the header: Ayarlar and Çıkış (spec §2). */
 export function ProfileMenu({ displayName, email }: { displayName: string; email: string }) {
   return (
     <Sheet>
@@ -19,7 +20,16 @@ export function ProfileMenu({ displayName, email }: { displayName: string; email
           <SheetTitle className="text-lg font-semibold text-ink">{displayName}</SheetTitle>
           <SheetDescription>{email}</SheetDescription>
         </SheetHeader>
-        <div className="px-4">
+        <div className="flex flex-col gap-2 px-4">
+          <SheetClose asChild>
+            <Link
+              href="/ayarlar"
+              className="flex h-12 w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 text-base font-medium text-ink hover:bg-muted"
+            >
+              <Settings className="size-5 text-muted-foreground" aria-hidden />
+              Ayarlar
+            </Link>
+          </SheetClose>
           <form action={signOut}>
             <button
               type="submit"
