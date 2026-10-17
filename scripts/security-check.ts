@@ -216,6 +216,25 @@ async function main() {
     // PostgREST doesn't expose trigger functions at all (PGRST202); either way it must not run.
     const triggerCall = await a.client.rpc("jobs_log_changes");
     record("signed-in users cannot call the trigger function", ["42501", "PGRST202"].includes(triggerCall.error?.code ?? ""), triggerCall.error?.code ?? "accepted");
+
+    // ---- Appointment RPCs (M3.1): owner-only, never anon ----
+    console.log("\nAppointment RPCs");
+    const later = (h: number) => new Date(start.getTime() + h * 3_600_000).toISOString();
+    const countAppointments = async () => (await admin.from("appointments").select("id", { count: "exact", head: true }).eq("job_id", ids.job)).count;
+    const before = await countAppointments();
+    const bNew = await b.client.rpc("save_appointment", { p_job_id: ids.job, p_starts_at: later(3), p_ends_at: later(4) });
+    record("B save_appointment on A's job → not_found", rpcResult(bNew) === "not_found", bNew.error?.message ?? rpcResult(bNew));
+    const bMove = await b.client.rpc("save_appointment", { p_job_id: ids.bJob, p_appointment_id: ids.appointment, p_starts_at: later(3), p_ends_at: later(4) });
+    record("B rescheduling A's appointment via own job → not_found", rpcResult(bMove) === "not_found", bMove.error?.message ?? rpcResult(bMove));
+    const bClose = await b.client.rpc("close_appointment", { p_appointment_id: ids.appointment, p_outcome: "cancelled" });
+    record("B close_appointment on A's appointment → not_found", rpcResult(bClose) === "not_found", bClose.error?.message ?? rpcResult(bClose));
+    const apptAfterB = await admin.from("appointments").select("status").eq("id", ids.appointment).single();
+    record("A's appointments unchanged after B's calls", (await countAppointments()) === before && (apptAfterB.data as { status: string } | null)?.status === "scheduled", `${await countAppointments()} rows`);
+    expectPermissionDenied("anon cannot execute save_appointment", await anon.rpc("save_appointment", { p_job_id: ids.job, p_starts_at: later(3), p_ends_at: later(4) }));
+    expectPermissionDenied("anon cannot execute close_appointment", await anon.rpc("close_appointment", { p_appointment_id: ids.appointment, p_outcome: "cancelled" }));
+    const aNew = await a.client.rpc("save_appointment", { p_job_id: ids.job, p_starts_at: later(3), p_ends_at: later(4) });
+    record("control: A save_appointment on own job → ok", rpcResult(aNew) === "ok", aNew.error?.message ?? rpcResult(aNew));
+
     const aStatus = await a.client.rpc("change_job_status", { p_job_id: ids.job, p_action: "start" });
     record("control: A change_job_status on own job → ok", rpcResult(aStatus) === "ok", aStatus.error?.message ?? rpcResult(aStatus));
     const lowerVersion = await a.client.from("jobs").update({ share_version: 0 }).eq("id", ids.job).select("id");

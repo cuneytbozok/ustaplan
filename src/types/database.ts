@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.18"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       appointment_requests: {
@@ -556,6 +581,10 @@ export type Database = {
         Args: { p_action: string; p_job_id: string; p_note?: string }
         Returns: Json
       }
+      close_appointment: {
+        Args: { p_appointment_id: string; p_outcome: string }
+        Returns: Json
+      }
       create_job: {
         Args: {
           p_address_id?: string
@@ -574,6 +603,15 @@ export type Database = {
         Returns: Json
       }
       fold_tr: { Args: { input: string }; Returns: string }
+      save_appointment: {
+        Args: {
+          p_appointment_id?: string
+          p_ends_at?: string
+          p_job_id: string
+          p_starts_at?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -702,6 +740,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

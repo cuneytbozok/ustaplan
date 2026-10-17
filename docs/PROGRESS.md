@@ -12,10 +12,10 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M3 |
-| Active task | **M3.1** 🔑 (In Progress: migration written and tested locally, waiting for approval to push to dev) |
-| Next task | M3.2 (after M3.1 is closed) |
-| Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` on dev |
-| Implementation tasks | 37 total · 15 completed · 22 remaining |
+| Active task | none |
+| Next task | **M3.2** (when the owner says "start the next task") |
+| Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` on dev |
+| Implementation tasks | 37 total · 16 completed · 21 remaining |
 | Last updated | 2026-10-18 |
 
 ## Blockers and owner inputs
@@ -26,7 +26,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Done: `xytwwudbnykackuxfeif`, Ireland (accepted, plan T-10) |
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Done: project `ustaplan`, https://ustaplan.vercel.app |
 | Set Vercel Function Region to Dublin (`dub1`), near the Ireland DB (default is `iad1`) | before M1.3 | Done: owner set Dublin (2026-10-17) |
-| Approve each migration push to dev | M1.1 ✓, M2.1 ✓, M3.1, M5.1, M5.3, M5.8 | Ask per task (M2.1 approved 2026-10-18) |
+| Approve each migration push to dev | M1.1 ✓, M2.1 ✓, M3.1 ✓, M5.1, M5.3, M5.8 | Ask per task (M3.1 approved 2026-10-18) |
 | Leaked password protection (Supabase Auth, HaveIBeenPwned) is off; advisor warns | before pilot (M6.3) | Owner to decide; may need a paid plan |
 | Approve creating the fake test users in dev | M1.2 | Done (approved 2026-10-17) |
 | Add VAPID keys to Vercel; run the Vault secrets SQL template | M5.6, M5.8 | Ask per task |
@@ -77,7 +77,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M3 — Appointments, conflicts, calendar, Bugün · depends on M2
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M3.1 🔑 | Migration `appointments` (`save_appointment`, `close_appointment`) → dev (approval) | In Progress | `supabase/migrations/20261017230457_appointments.sql` (CLI name). Job row locked first, then appointments. J2/J3 as in plan §7; reschedule supersedes + closes the open request; closed jobs refused; 15–480 min; idempotent repeats (T-13). **PGlite 38/38** (guards, cross-user not_found, durations, J2 on unplanned and kept for in_progress, reschedule chain + request closed, repeat calls, J3 both ways incl. "one of two", closed/reopened job, past visit, direct writes still denied). Also in this task: edit-form option renamed to "Adres Seç" (owner); timeline now labels `link_holder` events "Müşteri" (was checking a non-existent `customer` actor). typecheck, lint pass. **Remaining:** owner approval → `supabase db push` to dev, regenerate types, security-check, smoke |
+| M3.1 🔑 | Migration `appointments` (`save_appointment`, `close_appointment`) → dev (approval) | Completed | `supabase/migrations/20261017230457_appointments.sql` (CLI name). Job row locked first, then appointments. J2/J3 as in plan §7; reschedule supersedes + closes the open request; closed jobs refused; 15–480 min; idempotent repeats (T-13). **PGlite 38/38** (guards, cross-user not_found, durations, J2 on unplanned and kept for in_progress, reschedule chain + request closed, repeat calls, J3 both ways incl. "one of two", closed/reopened job, past visit, direct writes still denied). Also in this task: edit-form option renamed to "Adres Seç" (owner); timeline now labels `link_holder` events "Müşteri" (was checking a non-existent `customer` actor). typecheck, lint pass. **Applied to dev** with owner approval (`supabase db push`; `migration list` shows local = remote for all 3); `database.ts` regenerated. **security-check 105/105** (new: B save/reschedule/close on A's data → not_found with no effect, anon denied for both RPCs, owner control ok). **Live smoke as A on dev:** unplanned → save → scheduled; repeat → same id; reschedule (old superseded) + repeat → same id; cancel last → unplanned; new visit → scheduled; complete last → in_progress; events and appointment statuses as expected; fixtures removed. UI for appointments comes in M3.3 (2026-10-18) |
 | M3.2 | `scheduling.ts` + Vitest | Pending | |
 | M3.3 | AppointmentPicker + ConflictCard; reschedule, complete, cancel a visit | Pending | |
 | M3.4 | Takvim day/week | Pending | |
@@ -133,3 +133,4 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-18 | M2.2 Yeni iş form + FAB | `ee90f49` | 4 interactions locally; owner's iPhone OK |
 | 2026-10-18 | M2.3 İşler list + search | `1858820` | local filter/search matrix; owner's iPhone OK |
 | 2026-10-18 | M2.4 İş detayı (**M2 complete**) | `91f77dc` | all §7 manual transitions + price history locally; build OK; security-check 98/98; owner's phone OK |
+| 2026-10-18 | M3.1 appointments migration on dev | (this commit) | PGlite 38/38; security-check 105/105; live J2/J3 smoke |
