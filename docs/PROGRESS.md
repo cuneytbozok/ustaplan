@@ -11,11 +11,11 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | | |
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
-| Current milestone | M0 done → next: M1 |
+| Current milestone | M1 |
 | Active task | none |
-| Next task | **M1.1** 🔑 (when the owner says "start the next task") |
-| Application code | Next.js scaffold + branded placeholder (M0.2); no features yet |
-| Implementation tasks | 37 total · 4 completed · 33 remaining |
+| Next task | **M1.2** 🔑 (when the owner says "start the next task") |
+| Application code | Next.js scaffold + placeholder; DB schema `core` applied to dev (M1.1); no app features yet |
+| Implementation tasks | 37 total · 5 completed · 32 remaining |
 | Last updated | 2026-10-17 |
 
 ## Blockers and owner inputs
@@ -26,7 +26,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Done: `xytwwudbnykackuxfeif`, Ireland (accepted, plan T-10) |
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Done: project `ustaplan`, https://ustaplan.vercel.app |
 | Set Vercel Function Region to Dublin (`dub1`), near the Ireland DB (default is `iad1`) | before M1.3 | Done: owner set Dublin (2026-10-17) |
-| Approve each migration push to dev | M1.1, M2.1, M3.1, M5.1, M5.3, M5.8 | Ask per task |
+| Approve each migration push to dev | M1.1 ✓, M2.1, M3.1, M5.1, M5.3, M5.8 | Ask per task (M1.1 approved 2026-10-17) |
 | Approve creating the fake test users in dev | M1.2 | Ask at M1.2 |
 | Add VAPID keys to Vercel; run the Vault secrets SQL template | M5.6, M5.8 | Ask per task |
 | A phone for testing (an iPhone 16.4+ and/or Android for push) | from M0.4 | Assumed available |
@@ -57,7 +57,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M1 — Auth, RLS, customers and addresses · depends on M0
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M1.1 🔑 | Migration `core` (via `supabase migration new`) → dev (approval); generate types | Pending | |
+| M1.1 🔑 | Migration `core` (via `supabase migration new`) → dev (approval); generate types | Completed | `supabase/migrations/20261017203619_core.sql`. Before the push: PGlite (PG 17) dry run with stubbed auth/storage, **41/41 checks** (cross-user RLS, anon denied, column grants, job insert/delete denied, consistency checks, set-null address, media checks, storage folder policies); `db push --dry-run` OK. Pushed with owner approval. Live dev: 10 tables with RLS, anon has no select, insert/delete grants exactly per §3, `jobs.status` not updatable, anon can't run `fold_tr`, 23 public + 3 storage policies, 2 private buckets (2 MB / 4 MB + MIME lists); anon REST → 42501; `supabase db advisors` → no issues. `src/types/database.ts` generated. typecheck + lint pass. **Not yet done:** the `security-check.ts` re-run (script arrives in M1.7). Docs: fixed the CLAUDE.md/DATA_MODEL `share_*` contradiction in favour of DATA_MODEL §3 (2026-10-17) |
 | M1.2 🔑 | Admin scripts (`create-artisan`, `reset-password`); create fake artisans A and B in dev (approval) | Pending | |
 | M1.3 | Supabase clients, `proxy.ts`, `(app)` guard, `/giris`, logout; verify login with A and B | Pending | |
 | M1.4 | App shell + common components + domain helpers | Pending | |
@@ -120,4 +120,5 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | 2026-10-17 | M0.1 git init + docs on GitHub | `6c2e2ac` | Pushed with approval; remote `main` matches local |
 | 2026-10-17 | M0.2 Next.js scaffold | `1c90c69` | typecheck/lint/test/build pass with no env vars; 360 px smoke |
 | 2026-10-17 | M0.3 Supabase dev project + link | `65fac03` | link OK; signup → 422 `signup_disabled`; env read OK |
-| 2026-10-17 | M0.4 Vercel deploy (**M0 complete**) | see `git log` (M0.4) | https://ustaplan.vercel.app opens on the owner's phone; build passed |
+| 2026-10-17 | M0.4 Vercel deploy (**M0 complete**) | `a9ceb52` | https://ustaplan.vercel.app opens on the owner's phone; build passed |
+| 2026-10-17 | M1.1 core migration on dev | see `git log` (M1.1) | 41/41 PGlite checks; live catalog + advisors clean |

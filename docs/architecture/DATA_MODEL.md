@@ -1,6 +1,6 @@
 # UstaPlan — Target Data Model (reconciled)
 
-**Status:** Approved design, not yet implemented. Hand-written migrations under `supabase/migrations/` implement it incrementally (plan v3: M1.1 core, M2.1 jobs, M3.1 appointments, M5.x customer actions and cron). They are applied to the hosted dev project with the Supabase CLI (no Docker), only with owner approval. The [starter schema](03_SCHEMA_STARTER.sql) is kept only as a reference; §9 lists every difference and why.
+**Status:** Approved design. Implemented so far: `core` (M1.1: §2 tables, §3 grants/RLS, §5 `touch_updated_at`, §6 storage). Hand-written migrations under `supabase/migrations/` implement it incrementally (plan v3: M1.1 core, M2.1 jobs, M3.1 appointments, M5.x customer actions and cron). They are applied to the hosted dev project with the Supabase CLI (no Docker), only with owner approval. The [starter schema](03_SCHEMA_STARTER.sql) is kept only as a reference; §9 lists every difference and why.
 
 Conventions:
 - All tables live in `public` with RLS enabled. Every child row carries `owner_user_id`. Composite foreign keys `(owner_user_id, parent_id)` stop a row being attached to another artisan's data, even if someone guesses a UUID.
@@ -71,8 +71,8 @@ The admin script creates rows. No auth trigger.
 | agreed_price | numeric(12,2) | null, ≥0 |
 | currency | text | `'TRY'` |
 | show_price_to_customer | boolean | default false; check `not show_price_to_customer or agreed_price is not null` |
-| share_enabled | boolean | default true. **RPC-only.** |
-| share_version | integer | default 1, >0. **RPC-only.** |
+| share_enabled | boolean | default true. Plain owner update (§3); logged by `jobs_log_changes`. |
+| share_version | integer | default 1, >0. Plain owner update (§3); logged by `jobs_log_changes`. |
 | cancelled_reason | text | null; in `no_longer_needed, price_too_high, changed_mind, other_artisan, date_unsuitable, other` |
 | cancelled_note | text | null, ≤500 |
 | cancelled_by | text | null; `customer · artisan` |
@@ -182,7 +182,7 @@ One user can have many devices. Logout deletes the current device's row, so a sh
 
 ## 3. Grants and RLS (role `authenticated`)
 
-All policies check `owner_user_id = (select auth.uid())` (`id` for profiles). `anon` has no table privileges and no function `execute` rights. **Plain RLS-protected CRUD is the default.** RPCs exist only where several rows must change together (§4).
+All policies check `owner_user_id = (select auth.uid())` (`id` for profiles). `anon` has no table privileges and no function `execute` rights. The `core` migration also removes `anon` from the schema's default privileges. PostgreSQL's built-in `EXECUTE` for `PUBLIC` can't be removed per schema, so **every new function must `revoke execute … from public, anon`** and grant only what it needs. **Plain RLS-protected CRUD is the default.** RPCs exist only where several rows must change together (§4).
 
 | Table | select | insert | update (columns) | delete |
 | --- | --- | --- | --- | --- |

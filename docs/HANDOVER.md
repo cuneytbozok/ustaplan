@@ -3,35 +3,37 @@
 _Rewritten at the end of every task. Last updated: 2026-10-17._
 
 ## State in one line
-**Milestone M0 is complete.** The branded placeholder is live at **https://ustaplan.vercel.app** (it opens on the owner's phone), Supabase dev is linked and signup is off. Next: **M1.1** 🔑 (migration `core`), on the owner's instruction.
+**M1.1 is Completed**: the `core` schema is applied to Supabase dev and the types are generated. Commits are local (M0.4 + M1.1), and **pushing needs owner approval** (a push deploys). Next: **M1.2** 🔑 (admin scripts + fake artisans A/B).
 
 ## Last completed task
-**M0.4** 🔑: the owner created Vercel project `ustaplan` (team scope `cuneyts-projects-ec980692`) and connected GitHub `main`. The first build failed because the framework preset wasn't Next.js (Vercel looked for `public/`); setting the Next.js preset fixed it. Production env vars, plain (not sensitive): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL=https://ustaplan.vercel.app`.
+**M1.1** 🔑: `supabase/migrations/20261017203619_core.sql` (DATA_MODEL §2, §3, §5 `touch_updated_at`, §6). The owner approved `db push`; it applied cleanly. `src/types/database.ts` was regenerated.
 
 ## Current or interrupted task
 None.
 
 ## Files changed
-`docs/PROGRESS.md`, this file (no code changes in M0.4).
+`supabase/migrations/20261017203619_core.sql` (new), `src/types/database.ts` (generated), `CLAUDE.md`, `docs/architecture/DATA_MODEL.md`, `docs/PROGRESS.md`, this file.
 
 ## Key decisions
-- Vercel Function Region = **Dublin (`dub1`)**, near the Ireland DB (set by the owner).
-- A push to `main` now **deploys to production**. Every push needs owner approval.
-- Secret env vars added later (`SUPABASE_SECRET_KEY` in M1.2 and so on) must be marked **Sensitive** in Vercel, Production only.
-- The Vercel MCP connector returns 403 for this team scope, so verify deploys by `curl` on the URL, or ask the owner.
+- **`share_enabled`/`share_version`**: CLAUDE.md said RPC-only, while DATA_MODEL §3 grants them as plain updates (and there's no RPC for them among the 9). I followed §3 and corrected CLAUDE.md and the §2 labels. The M2.1 `jobs_log_changes` trigger logs these changes.
+- The migration revokes `anon` from public-schema default privileges. **Every future function must `revoke execute … from public, anon`** (now documented in DATA_MODEL §3).
+- Added `default auth.uid()` on `owner_user_id` for directly inserted tables (customers, addresses, job_media, push_subscriptions). RLS still enforces ownership.
+- Extra checks implied by DATA_MODEL text: appointments `closed_at` ⇔ not scheduled, and `replaced_by_id` only when superseded; requests `resolved_at` ⇔ terminal and `resulting_appointment_id` ⇔ accepted; media `deleted_at` ⇔ `deleted_by`, plus the duration rule. M3.1 and M5.3 RPCs must satisfy them.
+- CLI on this Mac: `supabase db push` and `db query --linked` work via the access token (no DB password needed). `npx supabase db advisors --linked` is a free extra check.
+- Pre-push SQL testing: a PGlite harness lives in the scratchpad only (not committed). Recreate it if needed: `@electric-sql/pglite` with stub `auth`/`storage` schemas and roles.
 
 ## Tests executed
-`npm run build` (no env) passed before the deploy. `curl https://ustaplan.vercel.app` → 200 with `lang=tr`, title, noindex, theme-color; `/icon.svg` 200. The owner confirmed it opens on the phone.
+PGlite 41/41. Live: `migration list` in sync; catalog checks (RLS, grants, buckets, policy counts); anon REST 42501; advisors clean. `npm run typecheck` and `lint` pass. `scripts/security-check.ts` doesn't exist yet (M1.7).
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - KVKK legal review is open; it blocks only M6.3.
 
 ## Uncommitted changes
-None. The M0.4 tracker commit is local; pushing it needs approval and **triggers a deploy**. The site's content wouldn't change.
+None. `main` is ahead of `origin` by 2 commits (M0.4 trackers, M1.1). The owner asked to push them together after M1.1 → ask for approval.
 
 ## Exact next action
-On "start the next task", do **M1.1** 🔑: `npx supabase migration new core`, then hand-write all tables, checks, `fold_tr`, search keys, `touch_updated_at`, grants, RLS, storage buckets and policies per DATA_MODEL.md. **Ask approval before `npx supabase db push`.** Then `npx supabase gen types typescript --project-id xytwwudbnykackuxfeif > src/types/database.ts`, then typecheck and lint.
+On "start the next task", do **M1.2** 🔑: `npm i -D tsx`. Write `scripts/create-artisan.ts --email --name` (auth admin `createUser` with `email_confirm: true` plus a `profiles` row, roll back the user on failure, print a generated temp password once) and `scripts/reset-password.ts --email`, using `adminEnv()` (needs `SUPABASE_SECRET_KEY` in `.env.local`; the owner pastes it, it's never shown in chat). Ask approval, then create fake artisans A and B in dev.
 
 ## Resume commands
 ```bash
@@ -41,5 +43,5 @@ cd /Users/cuneytbozok/Documents/Projeler/Ustaplan
 git status && git log --oneline -15
 ```
 ```bash
-npm ci && npm run typecheck && npm run lint
+npx supabase migration list
 ```
