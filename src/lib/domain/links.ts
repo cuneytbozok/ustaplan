@@ -11,3 +11,9 @@ export function whatsappHref(e164: string, text?: string) {
 export function mapHref(address: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
+
+/** Ready WhatsApp text for the customer link (siz tone; nothing is sent automatically). */
+export function shareMessage({ customerName, jobTitle, url, artisanName }: { customerName: string; jobTitle: string; url: string; artisanName: string }) {
+  const firstName = customerName.trim().split(/\s+/)[0];
+  return `Merhaba ${firstName}, "${jobTitle}" işinizin durumunu ve randevu bilgisini bu bağlantıdan görebilirsiniz: ${url}\n\n${artisanName}`;
+}

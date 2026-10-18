@@ -112,7 +112,8 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
   if (result.result === "customer_not_found") return fail("Müşteri bulunamadı.", { customer: "Müşteri bulunamadı." });
   if (result.result !== "ok" || !result.job_id) return fail("Bilgileri kontrol et.");
 
-  redirect(`/isler/${result.job_id}`, RedirectType.replace);
+  // ?paylas=1: the job page opens the share sheet, offering to send the link (plan §10).
+  redirect(`/isler/${result.job_id}?paylas=1`, RedirectType.replace);
 }
 
 // --- Edit (plain RLS update; jobs_log_changes writes the history) -----------

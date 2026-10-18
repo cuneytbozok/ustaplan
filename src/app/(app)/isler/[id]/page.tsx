@@ -10,12 +10,14 @@ import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { JobStatusSheet, ReopenJobButton } from "@/components/jobs/job-status-sheet";
+import { ShareSheet } from "@/components/jobs/share-sheet";
+import { shareUrl } from "@/lib/customer-link";
 import { describeEvent, JobTimeline } from "@/components/jobs/job-timeline";
 import { loadPhotos } from "@/lib/media/photos";
 import { loadVoiceNotes } from "@/lib/media/voice-notes";
 import { createClient } from "@/lib/supabase/server";
 import { CANCEL_REASON_LABELS, OPEN_JOB_STATUSES } from "@/lib/domain/labels";
-import { mapHref, whatsappHref } from "@/lib/domain/links";
+import { mapHref, shareMessage, whatsappHref } from "@/lib/domain/links";
 import { DEFAULT_DURATION_MINUTES, pickerDefaults } from "@/lib/domain/scheduling";
 import { formatTRY } from "@/lib/domain/money";
 import { formatPhone, telHref } from "@/lib/domain/phone";
@@ -47,7 +49,7 @@ async function JobDetail({
   params: PageProps<"/isler/[id]">["params"];
   searchParams: PageProps<"/isler/[id]">["searchParams"];
 }) {
-  const [{ id }, { planla }] = await Promise.all([params, searchParams]);
+  const [{ id }, { planla, paylas }] = await Promise.all([params, searchParams]);
   if (!UUID.test(id)) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />;
 
   const supabase = await createClient();
@@ -55,7 +57,7 @@ async function JobDetail({
     supabase
       .from("jobs")
       .select(
-        "id, owner_user_id, title, status, private_note, estimated_price, agreed_price, show_price_to_customer, cancelled_by, cancelled_reason, cancelled_note, cancelled_at, completed_at, created_at, customers(id, name, phone), customer_addresses(label, address_text), appointments(id, starts_at, ends_at, status)",
+        "id, owner_user_id, title, status, share_enabled, share_version, private_note, estimated_price, agreed_price, show_price_to_customer, cancelled_by, cancelled_reason, cancelled_note, cancelled_at, completed_at, created_at, customers(id, name, phone), customer_addresses(label, address_text), appointments(id, starts_at, ends_at, status)",
       )
       .eq("id", id)
       .order("starts_at", { referencedTable: "appointments" })
@@ -66,7 +68,29 @@ async function JobDetail({
   if (eventsResult.error) throw new Error(eventsResult.error.message);
   const job = jobResult.data;
   if (!job) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />; // includes other artisans' jobs (RLS hides them)
-  const [photos, voiceNotes] = await Promise.all([loadPhotos(supabase, [job.id]), loadVoiceNotes(supabase, job.id)]);
+  const [photos, voiceNotes, profile] = await Promise.all([
+    loadPhotos(supabase, [job.id]),
+    loadVoiceNotes(supabase, job.id),
+    supabase.from("profiles").select("display_name, business_name").eq("id", job.owner_user_id).single(),
+  ]);
+  if (profile.error) throw new Error(profile.error.message);
+  // A missing SHARE_LINK_SECRET must not break the job page; the sheet explains it.
+  let link: string | null = null;
+  try {
+    link = shareUrl(job.id, job.share_version);
+  } catch {
+    link = null;
+  }
+  const message =
+    link && job.customers
+      ? shareMessage({
+          customerName: job.customers.name,
+          jobTitle: job.title,
+          url: link,
+          artisanName: profile.data.business_name?.trim() || profile.data.display_name,
+        })
+      : null;
+  const whatsapp = message ? (job.customers?.phone ? whatsappHref(job.customers.phone, message) : `https://wa.me/?text=${encodeURIComponent(message)}`) : null;
 
   const customer = job.customers;
   const address = job.customer_addresses;
@@ -107,8 +131,18 @@ async function JobDetail({
           <p className="mt-3 rounded-xl bg-muted px-3 py-2.5 text-sm text-ink">{formatDate(job.completed_at)} günü tamamlandı.</p>
         ) : null}
 
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-2">
           {isOpen ? <JobStatusSheet jobId={job.id} status={job.status} upcoming={upcoming} /> : <ReopenJobButton jobId={job.id} />}
+          <ShareSheet
+            jobId={job.id}
+            url={link}
+            enabled={job.share_enabled}
+            version={job.share_version}
+            whatsapp={whatsapp}
+            // Right after "İşi kaydet" (?paylas=1) the app offers to send the link (plan §10).
+            defaultOpen={paylas === "1"}
+          />
+          {!job.share_enabled ? <p className="text-center text-xs text-muted-foreground">Müşteri bağlantısı kapalı.</p> : null}
         </div>
       </section>
 
