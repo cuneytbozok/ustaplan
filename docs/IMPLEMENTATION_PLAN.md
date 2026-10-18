@@ -345,7 +345,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 2. `scheduling`: overlap (half-open), slot suggestion, Istanbul ↔ UTC around midnight.
 3. `public-dto`: the exact key set of `CustomerJobView`; the estimate, notes, phone and address are absent.
 
-**`scripts/security-check.ts`** runs against the **dev** project with two fake artisan accounts (A, B) and the anon key. It's extended in M1.7, M4.5 and M5.9, and prints PASS/FAIL per check:
+**`scripts/security-check.ts`** runs against the **dev** project with two fake artisan accounts (A, B) and the anon key. From M4.5 the link checks also call the app over HTTP: run them against a local production build (`npm run build && npm run start`, or `SECURITY_CHECK_BASE_URL`), because `next dev` adds debug output to error pages. It's extended in M1.7, M4.5 and M5.9, and prints PASS/FAIL per check:
 - **RLS:** B can't select, insert, update or delete A's rows in any table, including with guessed IDs or cross-owner foreign keys. Anon gets nothing. Workflow columns (`jobs.status`, appointments, requests, events) can't be written directly.
 - **Storage:** B can't read, list, upload into or delete A's paths. Anon can't read anything.
 - **Links:** tampered, old-version, disabled and unknown tokens give an identical 404. Revocation is immediate, including for media. Customer actions are refused on an invalid link.

@@ -2,19 +2,26 @@
  * Security check against the DEV project (IMPLEMENTATION_PLAN §12).
  * v1 (M1.7): RLS isolation for every table, anon denial, storage isolation,
  * workflow-column denial. M2.1: job RPCs reject foreign data and anon.
- * Extended in M4.5 (links, exposure) and M5.9.
+ * v2 (M4.5): customer links over HTTP (identical 404s, revocation, rotation),
+ * page exposure, read-only GETs, media proxy restrictions. Extended in M5.9.
  *
  *   npm run security-check
  *
  * Needs in .env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
- * SUPABASE_SECRET_KEY and TEST_ARTISAN_{A,B}_{EMAIL,PASSWORD} (fake dev accounts).
+ * SUPABASE_SECRET_KEY, SHARE_LINK_SECRET and TEST_ARTISAN_{A,B}_{EMAIL,PASSWORD}
+ * (fake dev accounts). The link checks call the running app at
+ * SECURITY_CHECK_BASE_URL (default http://localhost:3000). Run them against a
+ * production build (`npm run build && npm run start`): `next dev` adds debug
+ * output to error pages, so "identical invalid pages" fails there. An
+ * unreachable app is a FAIL, never a skip.
  * Creates tagged fake fixtures for A with the admin client, checks what B, anon
  * and A can do, then deletes the fixtures. Prints PASS/FAIL; exits 1 on any FAIL.
  * Never prints keys, passwords or tokens.
  */
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { adminEnv, supabaseEnv } from "@/lib/env";
+import { adminEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
+import { createShareToken, signJobLink } from "@/lib/share-link";
 
 type Client = SupabaseClient;
 type Result = { data: unknown; error: { code?: string; message: string } | null };
@@ -90,11 +97,15 @@ async function main() {
     subscription: randomUUID(),
     bJob: randomUUID(),
     bCustomer: randomUUID(),
+    sharedMedia: randomUUID(),
+    audio: randomUUID(),
+    bMedia: randomUUID(),
   };
   const objectPath = `${a.id}/${ids.job}/${ids.media}.jpg`;
+  const sharedPath = `${a.id}/${ids.job}/${ids.sharedMedia}.jpg`;
   const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1, 0xff, 0xd9]);
 
-  console.log(`Security check v1 against ${new URL(url).host} (fixtures tagged ${tag})\n`);
+  console.log(`Security check v2 against ${new URL(url).host} (fixtures tagged ${tag})\n`);
 
   try {
     // ---- Fixtures: one row of A's in every table, plus one job of B's ----
@@ -102,7 +113,7 @@ async function main() {
     const end = new Date(start.getTime() + 3600 * 1000);
     await must("customer", admin.from("customers").insert({ id: ids.customer, owner_user_id: a.id, name: `${tag} müşteri`, phone: "+905550000099" }));
     await must("address", admin.from("customer_addresses").insert({ id: ids.address, owner_user_id: a.id, customer_id: ids.customer, address_text: `${tag} adres` }));
-    await must("job", admin.from("jobs").insert({ id: ids.job, owner_user_id: a.id, customer_id: ids.customer, address_id: ids.address, title: `${tag} iş`, status: "scheduled", estimated_price: 1000, private_note: "gizli" }));
+    await must("job", admin.from("jobs").insert({ id: ids.job, owner_user_id: a.id, customer_id: ids.customer, address_id: ids.address, title: `${tag} iş`, status: "scheduled", estimated_price: 4321.99, private_note: `${tag} gizlinot` }));
     await must("appointment", admin.from("appointments").insert({ id: ids.appointment, owner_user_id: a.id, job_id: ids.job, starts_at: start.toISOString(), ends_at: end.toISOString() }));
     await must("request", admin.from("appointment_requests").insert({ id: ids.request, owner_user_id: a.id, job_id: ids.job, appointment_id: ids.appointment, requested_starts_at: end.toISOString(), requested_ends_at: new Date(end.getTime() + 3600 * 1000).toISOString() }));
     await must("storage object", admin.storage.from("job-images").upload(objectPath, jpeg, { contentType: "image/jpeg" }));
@@ -110,8 +121,12 @@ async function main() {
     await must("event", admin.from("job_events").insert({ id: ids.event, owner_user_id: a.id, job_id: ids.job, event_type: "job_created", actor_type: "artisan" }));
     await must("notification", admin.from("notifications").insert({ id: ids.notification, owner_user_id: a.id, job_id: ids.job, category: "customer_cancelled", dedupe_key: `${tag}:cancel`, payload: { title: tag } }));
     await must("push subscription", admin.from("push_subscriptions").insert({ id: ids.subscription, owner_user_id: a.id, endpoint: `https://push.invalid/${tag}`, p256dh: "x", auth: "y" }));
+    await must("shared object", admin.storage.from("job-images").upload(sharedPath, jpeg, { contentType: "image/jpeg" }));
+    await must("shared media", admin.from("job_media").insert({ id: ids.sharedMedia, owner_user_id: a.id, job_id: ids.job, kind: "image", origin: "artisan", visibility: "shared", storage_bucket: "job-images", storage_path: sharedPath, mime_type: "image/jpeg", size_bytes: jpeg.length }));
+    await must("audio media", admin.from("job_media").insert({ id: ids.audio, owner_user_id: a.id, job_id: ids.job, kind: "audio", origin: "artisan", visibility: "private", storage_bucket: "job-audio", storage_path: `${a.id}/${ids.job}/${ids.audio}.m4a`, mime_type: "audio/mp4", size_bytes: 10, duration_seconds: 1 }));
     await must("B customer", admin.from("customers").insert({ id: ids.bCustomer, owner_user_id: b.id, name: `${tag} B müşteri` }));
     await must("B job", admin.from("jobs").insert({ id: ids.bJob, owner_user_id: b.id, customer_id: ids.bCustomer, title: `${tag} B iş` }));
+    await must("B shared media", admin.from("job_media").insert({ id: ids.bMedia, owner_user_id: b.id, job_id: ids.bJob, kind: "image", origin: "artisan", visibility: "shared", storage_bucket: "job-images", storage_path: `${b.id}/${ids.bJob}/${ids.bMedia}.jpg`, mime_type: "image/jpeg", size_bytes: jpeg.length }));
 
     // ---- Positive controls: A sees its own rows (otherwise the checks prove nothing) ----
     console.log("Controls");
@@ -264,9 +279,98 @@ async function main() {
     const publicBucket = await admin.storage.getBucket("job-images");
     const publicAudio = await admin.storage.getBucket("job-audio");
     record("media buckets are private", publicBucket.data?.public === false && publicAudio.data?.public === false, "a bucket is public");
+
+    // ---- Customer links (M4.5): over HTTP against the running app ----
+    console.log("\nCustomer links");
+    const base = (process.env.SECURITY_CHECK_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+    const secret = shareLinkEnv().secret;
+    const get = async (path: string) => {
+      const response = await fetch(`${base}${path}`, { redirect: "manual", cache: "no-store" });
+      return { status: response.status, headers: response.headers, body: await response.text() };
+    };
+    const reachable = await get("/gizlilik").then((r) => r.status === 200, () => false);
+    record(`app reachable at ${new URL(base).host}`, reachable, "start a production build (npm run build && npm run start) or set SECURITY_CHECK_BASE_URL");
+    if (reachable) {
+      // The RLS write controls above made the private photo "shared"; make it private again.
+      await must("reset private photo", admin.from("job_media").update({ visibility: "private" }).eq("id", ids.media));
+      const valid = createShareToken(secret, ids.job, 1);
+      const signature = signJobLink(secret, ids.job, 1);
+      const counts = async () => {
+        const [events, media, notifications] = await Promise.all([
+          admin.from("job_events").select("id", { count: "exact", head: true }).eq("job_id", ids.job),
+          admin.from("job_media").select("id", { count: "exact", head: true }).eq("job_id", ids.job),
+          admin.from("notifications").select("id", { count: "exact", head: true }).eq("job_id", ids.job),
+        ]);
+        return `${events.count}/${media.count}/${notifications.count}`;
+      };
+      const before = await counts();
+
+      const page = await get(`/t/${valid}`);
+      record("valid link → 200", page.status === 200, `status ${page.status}`);
+      record("customer page sends no-store, no-referrer, noindex",
+        /no-store/.test(page.headers.get("cache-control") ?? "") && page.headers.get("referrer-policy") === "no-referrer" && /noindex/.test(page.headers.get("x-robots-tag") ?? ""),
+        `${page.headers.get("cache-control")} | ${page.headers.get("referrer-policy")} | ${page.headers.get("x-robots-tag")}`);
+
+      // Exposure: nothing of the customer's, no private data, no ids of hidden media.
+      const leaks = [
+        ["customer phone", "5550000099"], ["customer name", `${tag} müşteri`], ["address", `${tag} adres`], ["private note", `${tag} gizlinot`],
+        ["estimate", "4321.99"], ["formatted estimate", "4.321"], ["private photo id", ids.media], ["voice note id", ids.audio], ["owner id", a.id], ["storage path", `${a.id}/`], ["og tags", "og:"],
+      ] as const;
+      for (const [label, needle] of leaks) record(`customer page contains no ${label}`, !page.body.includes(needle), "found in HTML");
+      record("customer page lists the shared photo through the proxy", page.body.includes(`/api/t/${valid}/media/${ids.sharedMedia}`), "shared photo missing");
+
+      // Every invalid form looks the same: real 404, same page.
+      const flipped = (signature[0] === "A" ? "B" : "A") + signature.slice(1);
+      const invalid = {
+        tampered: `${ids.job}.${flipped}`,
+        "old version": createShareToken(secret, ids.job, 7),
+        unknown: createShareToken(secret, randomUUID(), 1),
+        "other job's signature": `${ids.bJob}.${signature}`,
+        malformed: "not-a-token",
+      };
+      const invalidPages: Record<string, { status: number; body: string }> = {};
+      for (const [label, token] of Object.entries(invalid)) {
+        const r = await get(`/t/${token}`);
+        invalidPages[label] = { status: r.status, body: r.body.split(token).join("TOKEN") };
+        record(`${label} link → 404`, r.status === 404 && r.body.includes("Bu bağlantı geçersiz veya kapatılmış."), `status ${r.status}`);
+        record(`${label} link shows nothing of the job`, !r.body.includes(`${tag} iş`) && !r.body.includes("hack"), "job data in HTML");
+      }
+      const bodies = new Set(Object.values(invalidPages).map((p) => p.body));
+      record("all invalid links return an identical page", bodies.size === 1, `${bodies.size} different bodies (next dev adds debug output: run against npm run start)`);
+
+      // Media proxy: only shared/customer images of this job.
+      const media = (id: string, token = valid) => get(`/api/t/${token}/media/${id}`);
+      const shared = await media(ids.sharedMedia);
+      record("shared photo via proxy → 200 image", shared.status === 200 && (shared.headers.get("content-type") ?? "").startsWith("image/jpeg"), `status ${shared.status}`);
+      record("media proxy sends no-store and nosniff", /no-store/.test(shared.headers.get("cache-control") ?? "") && shared.headers.get("x-content-type-options") === "nosniff", "headers missing");
+      record("private photo via proxy → 404", (await media(ids.media)).status === 404, "served");
+      record("voice note via proxy → 404", (await media(ids.audio)).status === 404, "served");
+      record("another artisan's photo via this link → 404", (await media(ids.bMedia)).status === 404, "served");
+      record("shared photo with an invalid link → 404", (await media(ids.sharedMedia, invalid.tampered)).status === 404, "served");
+      record("malformed media id → 404", (await media("x")).status === 404, "served");
+
+      record("customer GETs wrote nothing (events/media/notifications)", (await counts()) === before, `${before} → ${await counts()}`);
+
+      // B can't change A's link settings.
+      expectNoEffect("B cannot disable A's link", await b.client.from("jobs").update({ share_enabled: false }).eq("id", ids.job).select("id"));
+      expectNoEffect("B cannot rotate A's link", await b.client.from("jobs").update({ share_version: 99 }).eq("id", ids.job).select("id"));
+
+      // Revocation and rotation take effect on the very next request.
+      await must("disable link", admin.from("jobs").update({ share_enabled: false }).eq("id", ids.job));
+      record("disabled link: page → 404", (await get(`/t/${valid}`)).status === 404, "still served");
+      record("disabled link: media → 404", (await media(ids.sharedMedia)).status === 404, "still served");
+      await must("enable link", admin.from("jobs").update({ share_enabled: true }).eq("id", ids.job));
+      record("re-enabled link → 200", (await get(`/t/${valid}`)).status === 200, "not served");
+      await must("rotate link", admin.from("jobs").update({ share_version: 2 }).eq("id", ids.job));
+      record("after regenerate: old link → 404", (await get(`/t/${valid}`)).status === 404, "old link works");
+      record("after regenerate: old media URL → 404", (await media(ids.sharedMedia)).status === 404, "old media works");
+      record("after regenerate: new link → 200", (await get(`/t/${createShareToken(secret, ids.job, 2)}`)).status === 200, "new link fails");
+      const lowered = await admin.from("jobs").update({ share_version: 1 }).eq("id", ids.job).select("id");
+      record("a regenerated link can't be revived (version can't go down)", Boolean(lowered.error), "version lowered");
+    }
   } finally {
     // ---- Cleanup (cascades remove appointments, requests, media rows, events, notifications) ----
-    await admin.storage.from("job-images").remove([objectPath, `${a.id}/${ids.job}/ctl.jpg`, `${a.id}/${ids.job}/b.jpg`, `${b.id}/${ids.job}/b.jpg`, `${a.id}/${ids.job}/anon.jpg`]);
+    await admin.storage.from("job-images").remove([objectPath, sharedPath, `${a.id}/${ids.job}/ctl.jpg`, `${a.id}/${ids.job}/b.jpg`, `${b.id}/${ids.job}/b.jpg`, `${a.id}/${ids.job}/anon.jpg`]);
     await admin.from("push_subscriptions").delete().like("endpoint", `https://push.invalid/${tag}%`);
     await admin.from("jobs").delete().in("id", [ids.job, ids.bJob]);
     await admin.from("customers").delete().in("id", [ids.customer, ids.bCustomer]);
