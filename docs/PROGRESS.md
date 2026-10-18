@@ -13,7 +13,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Plan version | v3.2 — **approved** (v3.2 adds the owner-only admin panel, M6.1–M6.4, owner 2026-10-18) |
 | Current milestone | M6 — admin panel (M6.1–M6.4) and M6.6 done; M6.5 and M6.7 blocked on the owner (phones, KVKK review, prod approvals). M5 still closes after D1–D7 |
 | Active task | none |
-| Next task | Owner: D8 (own admin account + TOTP on the deployed URL), D9 (backup setup), then **M6.5** phone smoke pass with D1–D7; then M6.7 after the KVKK review |
+| Next task | Owner: D9 (backup setup; can wait until M6.7), then **M6.5** phone smoke pass with D1–D7; then M6.7 after the KVKK review |
 | Application code | Admin panel `/admin` (M6.2–M6.4), data scripts + RUNBOOK (M6.6); Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` + `customer_cancel` + `reschedule` + `appointment_fk_deferred` + `cron` on dev |
 | Implementation tasks | 41 total · 39 completed · 2 remaining |
 | Last updated | 2026-10-18 (M6.6) |
@@ -34,7 +34,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | A phone for testing (an iPhone 16.4+ and/or Android for push) | from M0.4 | Assumed available |
 | KVKK legal review (notice + cross-border transfer) | M6.7 (real customer data) | Open |
 | Create the **prod** Supabase project; switch Vercel env | M6.7 | Ask at M6.7 |
-| Own admin account in dev + authenticator (D8) | using the panel | Open: `npm run admin:create-admin -- --email <you>` |
+| Own admin account in dev + authenticator (D8) | using the panel | Done (owner, 2026-10-18): TOTP sign-in works on the deployed URL; password changed |
 | `pg_dump` (libpq) + `SUPABASE_DB_URL` for backups (D9) | weekly backups, M6.7 | Open |
 
 ---
