@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.3** (reschedule negotiation) is implemented, on dev and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1 and M5.2 are complete.
+**M5.3** (reschedule negotiation) is complete: on dev, deployed (`a3dd0f6`) and confirmed on the owner's phones. Next: **M5.4** (inbox: bell, badge, `/bildirimler`), on the owner's instruction.
 
 ## Last completed task
-**M5.2** (`00c6ceb`, closed in `7e2bc67`): customer photo upload/delete, confirmed on the owner's phone.
+**M5.3** (`a3dd0f6`): migrations `reschedule` + `appointment_fk_deferred`, customer `RescheduleSection`, artisan `RequestCard` on İş detayı and Bugün, security-check 235/235. Follow-up in the close-out commit: a hint on the empty Randevu card of an open job (customers can't propose a first time; out of scope by spec §5.2).
 
 ## Current or interrupted task
-**M5.3 — In Progress (phone check pending).** Migrations `20261018065117_reschedule.sql` and `20261018070600_appointment_fk_deferred.sql` are on dev (both approved). Files: `src/app/api/t/[token]/reschedule/route.ts` (POST request, DELETE withdraw), `…/reschedule/accept/route.ts`, `src/components/public/reschedule-section.tsx`, `src/components/appointments/request-card.tsx` (new); `actions/appointments.ts` (`respondToRequest`), `bugun/page.tsx`, `isler/[id]/page.tsx`, `t/[token]/page.tsx`, `lib/public-job.ts` (+ `request`), `lib/customer-link.ts`, `lib/customer-api.ts` (`readJsonBody`), cancel + photos routes, `time.ts` (duplicate helper removed), `job-timeline.tsx`, `security-check.ts`, `tests/public-dto.test.ts`, `database.ts`, DATA_MODEL, plan.
+None.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
@@ -36,10 +36,10 @@ PGlite 73/73 (reschedule) + 75/75 with the FK fix (job and account delete); secu
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None after the M5.3 commit. Local commits not yet pushed: `7e2bc67` and the M5.3 commit.
+None. The M5.3 close-out commit (with the empty-Randevu hint) is local; push it with the next approved push.
 
 ## Exact next action
-Ask the owner to approve the push (deploys to Vercel). Then the owner, with two phones: on a job with a planned visit, open the link and ask for a new time; on the artisan phone see it on Bugün, try Başka tarih öner; accept it on the customer phone and check the visit moved; then try Onayla and Reddet on new requests. If it works, mark M5.3 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.4** (inbox: bell, badge, `/bildirimler`).
+On "start the next task", do **M5.4**: the header bell with an unread badge and `/bildirimler` (the `notifications` rows with `in_inbox`, newest first, rendered from `category + payload` in `src/lib/push/render.ts`, link to the job, mark read via the `read_at` column grant; skeleton, empty state, error + retry). No migration planned.
 
 ## Resume commands
 ```bash

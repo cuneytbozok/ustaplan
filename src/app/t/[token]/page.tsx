@@ -56,7 +56,15 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
             {formatDate(nextAppointment.startsAt)}, {formatTime(nextAppointment.startsAt)}–{formatTime(nextAppointment.endsAt)}
           </p>
         ) : (
-          <p className="mt-1 text-base text-ink">Henüz planlı bir randevu yok.</p>
+          <>
+            <p className="mt-1 text-base text-ink">Henüz planlı bir randevu yok.</p>
+            {capabilities.cancel ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ustanız randevu planlayınca burada görünür.
+                {artisan.phone ? " Size uygun zamanı WhatsApp'tan iletebilirsiniz." : ""}
+              </p>
+            ) : null}
+          </>
         )}
         {nextAppointment ? (
           <RescheduleSection
