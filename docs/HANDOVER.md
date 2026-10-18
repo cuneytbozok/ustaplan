@@ -35,7 +35,7 @@ Dev Supabase `xytwwudbnykackuxfeif` (Ireland), Vercel `ustaplan` → https://ust
 None after the M6 wrap-up commit (pushed).
 
 ## Exact next action
-Owner: D8 (create the admin account, enroll the authenticator on the deployed URL), D9 (backup setup + first run), then the M6.5 scenarios S1–S11 + D1–D7 on the phones. Report failures; fixes go into the task they came from. M6.7 only after the KVKK review, with approval for each external step.
+D8 done (owner, TOTP works, password changed). KVKK, backups (D9) and other launch items are parked by the owner in `docs/setup/PRE_LAUNCH_CHECKLIST.md`, to do at the end. Next with the owner: the M6.5 scenarios S1–S11 + D1–D7 on the phones. Report failures; fixes go into the task they came from. M6.7 only after the KVKK review, with approval for each external step.
 
 ## Resume commands
 ```bash

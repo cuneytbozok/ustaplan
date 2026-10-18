@@ -28,6 +28,8 @@ Hosting: **Vercel Hobby is for non-commercial testing only.** Before any commerc
 | [docs/design/04_DESIGN_PREVIEW.html](docs/design/04_DESIGN_PREVIEW.html) | Interactive visual prototype | Visual reference |
 | [docs/setup/05_SETUP_CHECKLIST.md](docs/setup/05_SETUP_CHECKLIST.md) | Supabase / Vercel / device checklist | Operational |
 | [docs/setup/PRIVACY_AND_DATA_REQUESTS.md](docs/setup/PRIVACY_AND_DATA_REQUESTS.md) | KVKK notice draft and manual data-request process | Operational |
+| [docs/setup/PRE_LAUNCH_CHECKLIST.md](docs/setup/PRE_LAUNCH_CHECKLIST.md) | Everything left before real customer data: KVKK review, backups, security settings, hosting terms | Launch gate (M6.7) |
+| [docs/setup/RUNBOOK.md](docs/setup/RUNBOOK.md) | Day-to-day operations: accounts, backups, restore, data requests, incidents, secrets | Operational |
 | [CLAUDE.md](CLAUDE.md) | Conventions and the task-by-task workflow | Binding |
 
 Precedence when documents disagree: spec v1.5 → IMPLEMENTATION_PLAN → DATA_MODEL → implementation prompt.
