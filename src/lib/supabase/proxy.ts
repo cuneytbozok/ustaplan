@@ -38,7 +38,9 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const onLogin = pathname === LOGIN_PATH;
 
-  if (!signedIn && !onLogin) return redirectKeepingCookies(request, response, LOGIN_PATH);
+  // Signed-out visitors may see the landing page (/) and the login page; everything else needs a session.
+  if (!signedIn && !onLogin && pathname !== "/") return redirectKeepingCookies(request, response, LOGIN_PATH);
+  if (!signedIn) return response;
 
   const inAdmin = pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
   // Signed-in non-admins get a real 404 for the whole panel before anything streams.

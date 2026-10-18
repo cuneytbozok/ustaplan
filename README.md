@@ -67,6 +67,8 @@ Operations (backups, restore, data requests, incidents, secrets): [docs/setup/RU
 
 Both print a generated temporary password once. Share it privately; the artisan changes it in Ayarlar.
 
+**Landing page (`/`):** public one-page introduction for signed-out visitors with a link to `/giris`; signed-in users go straight to the app.
+
 **Admin panel (`/admin`):** owner-only (password + authenticator app). Sign in at `/giris` with the admin account; the first visit sets up the authenticator. *Genel bakış* shows usage counts and trends; *Ustalar* lists artisans and creates, resets, deactivates and reactivates their accounts. See spec v1.5 §2.1 and plan §4.1.
 
 Security check against the **dev** project (run after every applied migration; needs `SUPABASE_SECRET_KEY` and the fake `TEST_ARTISAN_*` accounts in `.env.local`):

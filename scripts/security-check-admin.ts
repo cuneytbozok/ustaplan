@@ -97,6 +97,12 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
       response.status === 307 && response.location === "/giris" && !response.body.includes("Yönetim"), `${response.status} ${response.location}`);
   }
 
+  // ---- Landing page (owner request, plan L-1): public for signed-out visitors, never for sessions ----
+  const landing = await get(base, "/");
+  record("landing: anon GET / → 200 public page, indexable, links to login",
+    landing.status === 200 && landing.body.includes("İşlerini ve verdiğin sözleri unutma") && landing.body.includes('href="/giris"') && /<meta name="robots" content="index, follow"/.test(landing.body),
+    `${landing.status}`);
+
   // ---- Artisan A ----
   const signInArtisan = async () => {
     const session = cookieSession(url, publishableKey);
@@ -110,6 +116,8 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
     record(`admin: artisan GET ${path} → 404, nothing about the panel`,
       response.status === 404 && !response.body.includes("Yönetim"), `${response.status}`);
   }
+  const artisanHome = await get(base, "/", artisan.cookie());
+  record("landing: signed-in artisan GET / → /bugun", artisanHome.status === 307 && artisanHome.location === "/bugun", `${artisanHome.status} ${artisanHome.location}`);
   await artisan.client.auth.updateUser({ data: { role: "admin" } });
   await artisan.client.auth.refreshSession();
   const afterSelfGrant = await admin.auth.admin.getUserById(artisanA.id);

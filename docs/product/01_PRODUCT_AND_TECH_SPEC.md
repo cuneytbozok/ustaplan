@@ -18,6 +18,8 @@
 > 10. iPhone HEIC fotoğrafları desteklenir; yüklemeden önce dönüştürülür, sıkıştırılır ve EXIF/GPS bilgisi silinir.
 
 > **v1.5 değişikliği (ürün sahibi kararı, 2026-10-18).** Yalnızca ürün sahibinin girebildiği basit bir **yönetici paneli** (`/admin`) MVP kapsamına alındı (§2.1): usta listesi, usta ekleme, geçici şifre atama, devre dışı bırakma/etkinleştirme ve üst düzey kullanım özeti. Giriş şifre + doğrulama uygulaması (TOTP) ister. Panel müşteri kişisel verisi göstermez. Diğer kapsam dışı kurallar değişmedi.
+>
+> **v1.5 eki (ürün sahibi, 2026-10-18).** Giriş yapmamış ziyaretçiler için `/` adresinde tek sayfalık tanıtım sayfası: hero, özellikler, nasıl çalışır, müşteri bağlantısı, SSS ve “Giriş yap”. Kayıt formu ve iletişim düğmesi yok (pilotta hesaplar davetle açılır); SSS'de “pilot süresince ücretsiz”. Yalnızca bu sayfa arama motorlarına açıktır; üçüncü taraf betik ve analitik yoktur. Giriş yapmış usta `/bugun`'e, yönetici `/admin`'e yönlendirilir.
 
 ## 1. Ürünün vaadi
 
