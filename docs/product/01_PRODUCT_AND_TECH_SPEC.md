@@ -1,4 +1,4 @@
-# UstaPlan — MVP v1.4 · Product + UX + Architecture Specification
+# UstaPlan — MVP v1.5 · Product + UX + Architecture Specification
 
 **Durum:** Development-ready specification, implementation has not yet been built.  
 **Hedef:** 1–2 bağımsız usta ile küçük pilot; sade, hızlı, mobil öncelikli PWA.  
@@ -17,6 +17,8 @@
 > 9. Müşteri fotoğraf yüklediğinde ustaya yalnızca uygulama içi bildirim gider.
 > 10. iPhone HEIC fotoğrafları desteklenir; yüklemeden önce dönüştürülür, sıkıştırılır ve EXIF/GPS bilgisi silinir.
 
+> **v1.5 değişikliği (ürün sahibi kararı, 2026-10-18).** Yalnızca ürün sahibinin girebildiği basit bir **yönetici paneli** (`/admin`) MVP kapsamına alındı (§2.1): usta listesi, usta ekleme, geçici şifre atama, devre dışı bırakma/etkinleştirme ve üst düzey kullanım özeti. Giriş şifre + doğrulama uygulaması (TOTP) ister. Panel müşteri kişisel verisi göstermez. Diğer kapsam dışı kurallar değişmedi.
+
 ## 1. Ürünün vaadi
 
 “İşlerini ve verdiğin sözleri unutma.” Ustanın aldığı işleri, müşterilerini, randevularını, fotoğraflarını, sesli notlarını ve anlaşılan fiyatları tek yerde tutan dijital iş defteri. Müşteriye özel bir web bağlantısı üzerinden iş takibi, fotoğraf yükleme, tarih değişikliği talebi ve doğrudan iş iptali sağlanır.
@@ -27,13 +29,23 @@
 | --- | --- | --- |
 | Usta | Supabase Auth, e-posta/şifre | Yalnızca kendine ait müşteriler, adresler, işler, randevular, medyalar, talepler |
 | Müşteri | Hesap yok; yalnızca o işe özel gizli URL | Tek bir işin sınırlı detayları ve tanımlı müşteri işlemleri |
-| Yönetici (ürün sahibi) | Supabase Dashboard ve güvenli yerel admin scriptleri | Usta hesaplarını açma, gerektiğinde geçici şifre atama, pilot yönetimi |
+| Yönetici (ürün sahibi) | (v1.5) `/admin` yönetici paneli: aynı giriş sayfası, ayrı yönetici hesabı, şifre + TOTP; ayrıca Supabase Dashboard ve güvenli yerel admin scriptleri | Usta hesaplarını açma, geçici şifre atama, devre dışı bırakma/etkinleştirme, üst düzey kullanım özeti, pilot yönetimi |
 
 * Supabase public signup kapalı. Uygulamada kayıt sayfası veya giriş yapmadan usta olma yolu yok.
 * Usta hesabı e-posta + geçici şifre ile yönetici tarafından oluşturulur; e-posta yönetici tarafından doğrulanmış işaretlenebilir.
 * İlk girişten sonra usta **Ayarlar → Şifremi değiştir** üzerinden mevcut şifresiyle yeni şifre belirleyebilir; uygun Supabase Auth yöntemi kullanılır.
-* SMTP yok; pilotta “Şifremi unuttum” işlemi **yöneticiyle iletişim** yönergesidir, sahte otomatik sıfırlama butonu değildir. Giriş ekranındaki metin: “Şifrenizi unuttuysanız yöneticinizle iletişime geçin.” (iletişim bilgisi gösterilmez). Yönetici sunucu tarafı admin scriptiyle `auth.admin.updateUserById` kullanır.
-* Admin yetkisi veya Supabase secret/service key asla istemciye taşınmaz. Admin scriptleri dağıtılan uygulamanın genel kullanıcı arayüzünde bulunmaz.
+* SMTP yok; pilotta “Şifremi unuttum” işlemi **yöneticiyle iletişim** yönergesidir, sahte otomatik sıfırlama butonu değildir. Giriş ekranındaki metin: “Şifrenizi unuttuysanız yöneticinizle iletişime geçin.” (iletişim bilgisi gösterilmez). Yönetici geçici şifreyi yönetici panelinden (v1.5) veya sunucu tarafı admin scriptiyle (`auth.admin.updateUserById`) atar; şifre ustaya yönetici tarafından elden/özel olarak iletilir, otomatik e-posta yoktur.
+* Admin yetkisi veya Supabase secret/service key asla istemciye taşınmaz. Admin scriptleri dağıtılan uygulamanın genel kullanıcı arayüzünde bulunmaz; yönetici paneli (v1.5) tüm işlemleri sunucuda yapar.
+
+### 2.1 Yönetici paneli (v1.5)
+
+* Adres `/admin`. Yalnızca `app_metadata.role = admin` işaretli, **usta profili olmayan** ayrı yönetici hesabı girebilir; ayrıca oturum TOTP ile doğrulanmış olmalıdır (AAL2). İlk girişte doğrulama uygulaması QR koduyla kaydedilir. Diğer herkes (usta, girişsiz ziyaretçi) 404 görür. Yönetici hesabı yerel scriptle oluşturulur.
+* `/giris` tek giriş sayfasıdır; yönetici girişten sonra panele yönlendirilir.
+* **Ustalar:** liste (ad, e-posta, durum renk + metinle, son giriş, son etkinlik, müşteri ve iş sayıları, son 30 gündeki işler, bildirimi açık cihaz sayısı) ve usta detayı. İşlemler, her biri onay ister: **Usta ekle** (e-posta + ad; geçici şifre bir kez gösterilir), **Şifre sıfırla** (yeni geçici şifre bir kez gösterilir, saklanmaz, loglanmaz), **Devre dışı bırak / Etkinleştir**. Usta silme yoktur (silme/dışa aktarma belgelenmiş manuel süreçle).
+* **Devre dışı bırakma:** usta giriş yapamaz ve oturumu yenilenemez, cihazlarına push gitmez (abonelikleri silinir). Veriler değişmez; **müşteri bağlantıları çalışmaya devam eder**. Etkinleştirince her şey eski haline döner; bildirimler cihaz başına yeniden açılır.
+* **Genel bakış:** bugün / bu hafta / bu ay açılan işler (önceki dönemle birlikte), son 12 haftanın haftalık iş ve yeni müşteri eğilimi (basit çubuklar + tablo), aktif usta sayısı (son 7/30 gün), toplam usta, müşteri ve durumlara göre iş sayıları, bugünkü/bu haftaki randevular, kısa sistem sağlığı (son 24 saatin push sonuçları, bekleyen push, medya sayısı ve depolama).
+* **Gizlilik:** panel yalnızca usta bazında **sayılar** gösterir; müşteri adı, telefonu, adresi, notlar, fotoğraflar veya iş içeriği gösterilmez. Harici analitik servisi kullanılmaz.
+* Masaüstü öncelikli, 360 px'te kullanılabilir. Arayüz Türkçe, *sen* hitabı.
 
 ## 3. Ürün bilgi mimarisi
 
@@ -228,10 +240,11 @@ SQL başlangıç şeması ayrı dosyada [`03_SCHEMA_STARTER.sql`](../architectur
 17. Kullanıcıların gerçek adları, telefonları ve açık adresleri sahte seed data dışında repo/test loglarına yazılmaz.
 18. (v1.4) Bildirimleri etkinleştiren usta; müşteri iptali, tarih talebi ve karşı teklif kabulünde anlık push; randevudan 1 saat önce ve günlük takip için zamanlanmış push alır. Uygulama kapalıyken de fiziksel Android ve ana ekrana eklenmiş iOS cihazda doğrulanır. Aynı olay için tekrar bildirim gönderilmez.
 19. (v1.4) Müşteri sayfasından KVKK aydınlatma metnine ulaşılır; veri silme talepleri belgelenmiş manuel süreçle karşılanır.
+20. (v1.5) `/admin` yalnızca yönetici rolü ve TOTP ile doğrulanmış oturumla açılır; usta ve girişsiz ziyaretçi 404 alır ve yönetici işlemlerini çağıramaz. Devre dışı bırakılan usta giriş yapamaz ve push almaz; müşteri bağlantıları çalışır. Panel müşteri kişisel verisi göstermez.
 
 ## 11. Kesin kapsam dışı
 
-Usta arama/pazaryeri, ödeme, fatura, tahsilat, stok, malzeme satın alma, çoklu personel yönetimi, müşteri üyeliği/uygulaması, müşterinin yeni iş açması, AI/transkripsiyon, WhatsApp Business API/otomatik WhatsApp mesajları, harita üzerinden otomatik rota, gelişmiş istatistikler, ücretsiz self-signup, zorunlu SMS/e-posta doğrulaması.
+Usta arama/pazaryeri, ödeme, fatura, tahsilat, stok, malzeme satın alma, çoklu personel yönetimi, müşteri üyeliği/uygulaması, müşterinin yeni iş açması, AI/transkripsiyon, WhatsApp Business API/otomatik WhatsApp mesajları, harita üzerinden otomatik rota, gelişmiş istatistikler ve ustaya yönelik analitik/dashboard (v1.5: yalnızca §2.1'deki basit yönetici özeti kapsamda), birden fazla yönetici veya yönetici rolleri, ücretsiz self-signup, zorunlu SMS/e-posta doğrulaması.
 
 ## 12. Kodlama ajanına teslim koşulları
 

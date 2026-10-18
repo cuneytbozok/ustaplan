@@ -39,7 +39,7 @@ UstaPlan is built **one task at a time, on explicit instruction**. Tasks are the
 Rewrite it (don't append) at the end of every task: last completed task, current or interrupted task, files changed, key decisions, tests and results, known bugs and blockers, uncommitted changes, the exact next action, resume commands. Keep it to about one screen.
 
 ## Sources of truth (in order)
-1. [docs/product/01_PRODUCT_AND_TECH_SPEC.md](docs/product/01_PRODUCT_AND_TECH_SPEC.md) v1.4: product behaviour and acceptance criteria AC1–AC19.
+1. [docs/product/01_PRODUCT_AND_TECH_SPEC.md](docs/product/01_PRODUCT_AND_TECH_SPEC.md) v1.5: product behaviour and acceptance criteria AC1–AC20.
 2. [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): rules, state machines, milestones, decisions (§15).
 3. [docs/architecture/DATA_MODEL.md](docs/architecture/DATA_MODEL.md): schema, grants, RPCs, cron. Migrations must match it.
 4. [docs/architecture/02_CODEX_CLAUDE_PROMPT.md](docs/architecture/02_CODEX_CLAUDE_PROMPT.md): supporting only.
@@ -64,13 +64,15 @@ If the docs conflict and the plan doesn't resolve it, ask the owner.
 - KVKK notice at `/gizlilik`
 - WhatsApp, call and map deep links
 - Installable PWA
+- **Owner-only admin panel** at `/admin` (spec v1.5 §2.1, plan §4.1, M6.1–M6.4): artisan list, create, temporary-password reset, deactivate/reactivate, high-level usage figures (counts only). One admin, password + TOTP
 
 **Out of scope, never add:**
-- Public signup, customer accounts, OTP, SMS or email flows, SMTP or any automated password reset, admin UI
+- Public signup, customer accounts, OTP, SMS or email flows, SMTP or any automated password reset
+- Admin features beyond `/admin` as specified: multiple admins or roles, an admin view of customer personal data or job content, deleting artisans or data from the panel, admin audit tables
 - Marketplace, payments, invoicing, accounting, inventory, multi-staff
 - AI or transcription
 - WhatsApp Business API or automated messages
-- Route optimisation, analytics, dashboards, offline data sync
+- Route optimisation, analytics services, dashboards in the artisan app, offline data sync
 - Vercel Cron, Edge Functions, extra paid services
 
 ## Architecture decisions
@@ -78,17 +80,19 @@ If the docs conflict and the plan doesn't resolve it, ask the owner.
 - **Artisan writes:** Server Actions using the user-scoped Supabase client with plain RLS CRUD. **Only the 9 multi-row workflows in DATA_MODEL §4** are Postgres RPCs (one transaction each, row-locked, idempotent). Don't add RPCs where secure CRUD is enough.
 - **Customer endpoints:** `src/app/t/[token]` and `src/app/api/t/[token]/…`. Every request (including media GETs) verifies the HMAC token. Then the server-only admin client calls public RPCs that re-check `share_enabled` and `share_version` under lock. Responses use the allowlisted `CustomerJobView` DTO only.
 - **Share links:** `APP_BASE_URL + /t/<jobId>.<HMAC(SHARE_LINK_SECRET, jobId:share_version)>`. Never hard-code domains.
-- **Auth:** Supabase email/password via `@supabase/ssr`. Authorise with server-verified claims (`getUser()`/`getClaims()`), never `getSession()` or raw cookies. Signup is disabled. The admin uses local scripts.
+- **Auth:** Supabase email/password via `@supabase/ssr`. Authorise with server-verified claims (`getUser()`/`getClaims()`), never `getSession()` or raw cookies. Signup is disabled. The admin uses local scripts and, from M6.2, the admin panel.
+- **Admin panel:** `/admin`, gated on every page and action by `requireAdmin()` (`lib/admin/auth.ts`): session → `app_metadata.role === "admin"` → MFA `aal2`; everyone else gets 404. The admin is a separate auth user with **no profile**. Server-side admin client only; no RPC, migration or chart library. Deactivate = auth ban + delete the artisan's push subscriptions; customer links keep working.
 - **Keys:** only the publishable key and the VAPID public key reach the browser. `SUPABASE_SECRET_KEY`, `SHARE_LINK_SECRET`, `CRON_SECRET` and `VAPID_PRIVATE_KEY` live in `server-only` modules.
 - **Storage:** private buckets, path `<owner>/<job>/<media>.<ext>`. Images are prepared in the browser (HEIC → JPEG, ≤1600 px, ≤2 MB, EXIF/GPS removed). The server validates magic bytes. Artisans view media through 1 h signed URLs; customers through the token-verified media proxy.
 - **Workflow data** (`jobs.status`, `cancelled_*`/`completed_at`, appointments, requests, events) is written only by RPCs and triggers. `share_enabled`/`share_version` are plain owner updates (DATA_MODEL §3), logged by the `jobs_log_changes` trigger. **No job deletion in the app.**
 - **Notifications:** the `notifications` table is both inbox and push outbox (dedupe key; claimed with a conditional update). Immediate pushes go out via `after()` in the request. One **Supabase Cron** job (`pg_cron` + `pg_net`, every 5 min, bearer `CRON_SECRET` from Vault) calls `/api/internal/dispatch`. That TypeScript endpoint creates reminders and the digest, sends and retries, and does the daily cleanup. `web-push` runs on Vercel.
-- **Environments:** hosted Supabase **dev** project (fake data) from M0; a separate **prod** project only at M6.3. No Docker and no local Supabase. Phone testing uses the production `vercel.app` URL.
+- **Environments:** hosted Supabase **dev** project (fake data) from M0; a separate **prod** project only at M6.7. No Docker and no local Supabase. Phone testing uses the production `vercel.app` URL.
 - **Time:** `timestamptz`, displayed and parsed in `Europe/Istanbul` with an explicit `timeZone`. **Money:** `numeric(12,2)` TRY via `Intl.NumberFormat('tr-TR')`.
 - Small dependency list, pinned by lockfile. No ORM, state library, analytics or queue.
 
 ## Security rules (non-negotiable)
 - RLS on every table; owner-scoped policies; composite FKs; `security definer` RPCs assert ownership or the share version themselves; `anon` has nothing.
+- The admin panel shows per-artisan counts only: never customer names, phones, addresses, notes, photos or job content. Temporary passwords are shown once and never logged or stored.
 - The customer page never exposes the customer's phone or address, other jobs, notes, audio, private photos, the **estimated price**, or the artisan's calendar.
 - Public GETs are strictly read-only (WhatsApp previews). POST/DELETE need an explicit user action, an `Origin` check, zod validation, rate limits, and an audit event.
 - Public routes send `no-store`, `no-referrer` and `noindex`; no third-party scripts; no OG tags with job data.
@@ -97,7 +101,7 @@ If the docs conflict and the plan doesn't resolve it, ask the owner.
 - Compare signatures and secrets with `timingSafeEqual`. Invalid, revoked and unknown links all look the same.
 
 ## Coding conventions
-- Code, identifiers, comments, commits and docs are in English. UI copy and routes are in Turkish (`/bugun`, `/takvim`, `/isler`, `/musteriler`, `/ayarlar`, `/bildirimler`, `/giris`, `/gizlilik`).
+- Code, identifiers, comments, commits and docs are in English. UI copy and routes are in Turkish (`/bugun`, `/takvim`, `/isler`, `/musteriler`, `/ayarlar`, `/bildirimler`, `/giris`, `/gizlilik`). Owner-approved exception: the admin panel lives at `/admin` (its sub-routes and copy are Turkish).
 - Tone: the artisan app uses *sen* ("Sadece sen görürsün"); the customer page and privacy notice use *siz*.
 - DB values are English codes; Turkish labels live in `src/lib/domain/labels.ts`. Push and inbox copy lives in `src/lib/push/render.ts`.
 - Files are kebab-case; components PascalCase.

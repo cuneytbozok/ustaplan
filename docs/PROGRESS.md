@@ -10,13 +10,13 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 
 | | |
 | --- | --- |
-| Plan version | v3.1 (fast path) — **approved**; planning complete |
+| Plan version | v3.2 — **approved** (v3.2 adds the owner-only admin panel, M6.1–M6.4, owner 2026-10-18) |
 | Current milestone | M5 — all tasks done; milestone closes after the owner's phone checks D1–D7 |
 | Active task | none |
-| Next task | **End-of-M5 phone checks D1–D7** with the owner; then M6.1 (when the owner says "start the next task") |
+| Next task | **M6.2** (when the owner says "start the next task"). Still open: end-of-M5 phone checks D1–D7 with the owner |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` + `customer_cancel` + `reschedule` + `appointment_fk_deferred` + `cron` on dev |
-| Implementation tasks | 37 total · 34 completed · 3 remaining |
-| Last updated | 2026-10-18 |
+| Implementation tasks | 41 total · 35 completed · 6 remaining |
+| Last updated | 2026-10-18 (M6.1) |
 
 ## Blockers and owner inputs
 
@@ -27,13 +27,13 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Done: project `ustaplan`, https://ustaplan.vercel.app |
 | Set Vercel Function Region to Dublin (`dub1`), near the Ireland DB (default is `iad1`) | before M1.3 | Done: owner set Dublin (2026-10-17) |
 | Approve each migration push to dev | M1.1 ✓, M2.1 ✓, M3.1 ✓, M5.1 ✓, M5.3 ✓ (+ fix), M5.8 ✓ | Ask per task (M5.8 `cron` approved 2026-10-18) |
-| Leaked password protection (Supabase Auth, HaveIBeenPwned) is off; advisor warns | before pilot (M6.3) | Owner to decide; may need a paid plan |
+| Leaked password protection (Supabase Auth, HaveIBeenPwned) is off; advisor warns | before pilot (M6.7) | Owner to decide; may need a paid plan |
 | Approve creating the fake test users in dev | M1.2 | Done (approved 2026-10-17) |
 | Customer-link secrets on Vercel: `SHARE_LINK_SECRET` (Production + Preview, separate random values) and `SUPABASE_SECRET_KEY` (dev project, Production); added via the CLI without printing, sensitive | M4.3 | Done (approved 2026-10-18). `SUPABASE_SECRET_KEY` had never been on Vercel (earlier features use the user session), so the first live customer link returned 500 until it was added and production redeployed |
 | Add VAPID keys to Vercel; run the Vault secrets SQL template | M5.6 ✓, M5.8 | VAPID keys + `CRON_SECRET` on Vercel Production with approval (2026-10-18; sensitive). Vault `app_base_url` + `cron_secret` stored by the owner in the dev SQL editor (2026-10-18) |
 | A phone for testing (an iPhone 16.4+ and/or Android for push) | from M0.4 | Assumed available |
-| KVKK legal review (notice + cross-border transfer) | M6.3 (real customer data) | Open |
-| Create the **prod** Supabase project; switch Vercel env | M6.3 | Ask at M6.3 |
+| KVKK legal review (notice + cross-border transfer) | M6.7 (real customer data) | Open |
+| Create the **prod** Supabase project; switch Vercel env | M6.7 | Ask at M6.7 |
 
 ---
 
@@ -106,12 +106,18 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | M5.8 🔑 | Dispatcher (reminders, digest, retries, cleanup) + migration `cron` + Vault (approval) | Completed (phone acceptance D6–D7 deferred by the owner to the end of M5) | `POST /api/internal/dispatch` (bearer `CRON_SECRET`, sha256 + `timingSafeEqual`; 401 wrong/missing, 503 when not configured, 405 GET, no-store, `maxDuration` 60). Steps isolated: `createReminders` (scheduled visits starting in (55, 65] min, not for visits created < 60 min before start; push-only, dedupe `appt-reminder:<id>`), `createDigests` (once per Istanbul day 08:00–20:00, artisans with a device, only if today's visits / waiting requests / follow-ups > 0; `digest:<date>`; follow-up rule shared with Bugün in `lib/domain/follow-ups.ts`), `sendDue` (pending, failed with due retry, `sending` past its 10-min lease; pending older than **1 h** → skipped, never sent late), `cleanupStorage` (03:00–03:10 Istanbul: objects of soft-deleted rows, unregistered objects older than a day; rows kept). `lib/push.ts` refactored: one claim (conditional update + lease) / send / record path for immediate and dispatched pushes; expired reminders skipped. Copy for reminder ("1 saat sonra randevun var · 14:00 · Müşteri · İş") and digest ("Günün özeti · Bugün 2 randevu · 1 tarih talebi · 6 iş takip bekliyor") in `render.ts`; digest opens Bugün. Migration `20261018151856_cron.sql`: `pg_cron`, `pg_net`, schedule `ustaplan-dispatch` `*/5` reading Vault names only (docs checked); `scripts/vault-secrets.sql.example`. **Checks:** local production build: auth (401/401/405/no-store); fixture run on dev: reminder for the visit planned 2 h ahead, none for the one created now; failed-due retried (attempt 2), stuck `sending` recovered, failed-not-due untouched, 2-day-old pending skipped, digest once with counts; second run created/sent nothing. Cleanup at a simulated 03:01: soft-deleted object removed, live and fresh unregistered kept; no-op at 12:00. **Found:** the first run pushed 4 of the owner's morning-test notifications that had stayed `pending` from before push existed (plus a digest) → pending age limit cut from 24 h to 1 h; no pending rows left in dev. security-check 240/240; typecheck, lint, test 31/31, build. **Live (approved):** `CRON_SECRET` on Vercel (sensitive), deployed `29d77dd`; live endpoint 401 with a wrong secret, 200 with the real one (nothing due); migration applied with approval, types unchanged. **Vault:** both secrets stored by the owner. **Schedule proven:** Vercel logs show the first scheduled `POST /api/internal/dispatch` at 18:30:00 Istanbul with **200** (the only 4xx was my wrong-secret test). **Deferred (owner):** D6 reminder and D7 morning digest on the phone |
 | M5.9 | `security-check.ts` v3 (consistency, dispatcher auth) | Completed | 18 new checks. **Dispatcher:** no bearer, wrong bearer, secret + one character, secret without `Bearer ` → 401; GET → 405; with the secret → 200, body only `{reminders, digests, push, cleanup}`, no-store (one real cycle, equal to the cron already running on dev). **Concurrency** (two requests fired with `Promise.all` over HTTP, fixture jobs C/D on A's customer): accept vs withdraw at once → exactly one 200 + one 409, request accepted or withdrawn, exactly one scheduled visit matching the outcome, only the winner's notification; two date requests at once → both 200, exactly one open request; double accept → both 200, one new visit (one superseded), one `request_accepted` event, one `counter_accepted` notification; double cancel → both 200, cancelled once with one of the reasons, one event, one notification, no future visit or open request left. Fixtures removed (jobs C/D deleted before the cascade check). **258/258 twice in a row** against a production build (:3200). typecheck, lint pass (2026-10-18) |
 
-## M6 — Pilot readiness · depends on M5
+## M6 — Admin panel and pilot readiness · depends on M5
+Plan v3.2 (owner, 2026-10-18): M6.1–M6.4 added for the owner-only admin panel; the former M6.1–M6.3 are now M6.5–M6.7.
+
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M6.1 | Full mobile smoke pass + critical fixes | Pending | |
-| M6.2 | Backup, delete/export scripts, RUNBOOK.md | Pending | |
-| M6.3 🔑 | Prod Supabase project, switch Vercel env, pilot accounts, prod smoke (approval; KVKK review) | Pending | |
+| M6.1 | Admin panel scope-change docs (spec v1.5, plan v3.2, CLAUDE.md, DATA_MODEL, README, setup/privacy docs) | Completed | Written: spec v1.5 (v1.5 note, roles row, new §2.1, AC20, §11 wording), plan v3.2 (header, §2 tree, §4 scripts + new §4.1, §10 security-check scope, M6 table renumbered, §11/§14 refs, decisions A-1…A-5), CLAUDE.md (scope, out-of-scope, auth/admin architecture, `/admin` route exception, admin privacy rule, M6.7), DATA_MODEL (admin account note: no schema change), README (versions, 41 tasks, planned panel), setup checklist (admin account + TOTP item), privacy doc (counts only, panel deactivation). Stale-reference grep for `v1.4`/`37 tasks`/old M6 numbers clean. Owner reviewed and approved the diff (2026-10-18); no code changed |
+| M6.2 🔑 | `requireAdmin()`, `/admin` shell, TOTP enroll/challenge, login redirects, `create-admin.ts`; admin account in dev (approval); security-check | Pending | |
+| M6.3 | Ustalar: list, detail, create / reset / deactivate / reactivate; shared `lib/admin/accounts.ts`; security-check | Pending | |
+| M6.4 | Genel bakış: figures, 12-week trend, active artisans, system health; build + deploy (approval) | Pending | |
+| M6.5 | Full mobile smoke pass + critical fixes | Pending | |
+| M6.6 | Backup, delete/export scripts, RUNBOOK.md | Pending | |
+| M6.7 🔑 | Prod Supabase project, switch Vercel env, pilot accounts, admin account + TOTP in prod, prod smoke (approval; KVKK review) | Pending | |
 
 ---
 

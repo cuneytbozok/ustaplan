@@ -18,8 +18,8 @@ Hosting: **Vercel Hobby is for non-commercial testing only.** Before any commerc
 
 | Path | What it is | Authority |
 | --- | --- | --- |
-| [docs/product/01_PRODUCT_AND_TECH_SPEC.md](docs/product/01_PRODUCT_AND_TECH_SPEC.md) | Product, UX and architecture spec v1.4 (Turkish) | **Primary source of truth** |
-| [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | v3.1 fast path: architecture, rules, milestones M0–M6 (37 tasks), verification, risks, decisions | **Approved plan** |
+| [docs/product/01_PRODUCT_AND_TECH_SPEC.md](docs/product/01_PRODUCT_AND_TECH_SPEC.md) | Product, UX and architecture spec v1.5 (Turkish) | **Primary source of truth** |
+| [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | v3.2: architecture, rules, milestones M0–M6 (41 tasks), verification, risks, decisions | **Approved plan** |
 | [docs/PROGRESS.md](docs/PROGRESS.md) | Task tracker: status of every milestone task | Live state |
 | [docs/HANDOVER.md](docs/HANDOVER.md) | What the next session needs to continue | Live state |
 | [docs/architecture/DATA_MODEL.md](docs/architecture/DATA_MODEL.md) | Target schema, RLS, RPCs, cron, retention; reconciliation with the starter | Binding for migrations |
@@ -30,7 +30,7 @@ Hosting: **Vercel Hobby is for non-commercial testing only.** Before any commerc
 | [docs/setup/PRIVACY_AND_DATA_REQUESTS.md](docs/setup/PRIVACY_AND_DATA_REQUESTS.md) | KVKK notice draft and manual data-request process | Operational |
 | [CLAUDE.md](CLAUDE.md) | Conventions and the task-by-task workflow | Binding |
 
-Precedence when documents disagree: spec v1.4 → IMPLEMENTATION_PLAN → DATA_MODEL → implementation prompt.
+Precedence when documents disagree: spec v1.5 → IMPLEMENTATION_PLAN → DATA_MODEL → implementation prompt.
 
 ## Notifications: what to expect
 
@@ -57,6 +57,8 @@ npm run admin:reset-password -- --email usta@ornek.com
 ```
 
 Both print a generated temporary password once. Share it privately; the artisan changes it in Ayarlar.
+
+**Admin panel (planned, M6.2–M6.4, not built yet):** an owner-only panel at `/admin` (password + authenticator app) for the artisan list, creating artisans, temporary passwords, deactivation and high-level usage counts. See spec v1.5 §2.1 and plan §4.1.
 
 Security check against the **dev** project (run after every applied migration; needs `SUPABASE_SECRET_KEY` and the fake `TEST_ARTISAN_*` accounts in `.env.local`):
 

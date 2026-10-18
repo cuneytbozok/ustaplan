@@ -1,6 +1,6 @@
 # Implementation prompt — Paste into Codex or Claude Code
 
-> **Status (2026-10-17):** Supporting document. Where it conflicts with the product spec v1.4 or [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md), those win. In particular: Web Push is **part of the MVP**; work proceeds milestone by milestone after plan approval rather than "start coding immediately"; the share-link base URL comes from `APP_BASE_URL`.
+> **Status (2026-10-17):** Supporting document. Where it conflicts with the product spec (v1.5) or [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md), those win. In particular: Web Push is **part of the MVP**; work proceeds milestone by milestone after plan approval rather than "start coding immediately"; the share-link base URL comes from `APP_BASE_URL`.
 
 You are a senior full-stack TypeScript engineer and an expert in clean, mobile-first product design. **Build a complete, runnable MVP** for a Turkish tradesperson job-management PWA, named **UstaPlan**.
 

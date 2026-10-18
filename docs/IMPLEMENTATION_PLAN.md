@@ -1,11 +1,13 @@
 # UstaPlan — Implementation Plan (MVP)
 
-**Version:** 3.1 (fast path) · 2026-10-17 · **Status:** ✅ approved. Planning is complete; no further architecture reviews unless an implementation blocker appears.
+**Version:** 3.2 · 2026-10-18 · **Status:** ✅ approved. Planning is complete; no further architecture reviews unless an implementation blocker appears.
+
+**v3.2 (owner, 2026-10-18):** owner-only **admin panel** at `/admin` added before the pilot (spec v1.5 §2.1, decisions A-1…A-5 in §15, §4.1). New tasks M6.1–M6.4; the former M6.1–M6.3 are now M6.5–M6.7. 41 tasks.
 
 **v3.1 corrections:** CLI-generated timestamped migration names · per-feature env validation · auth accounts created before login (M1.2 ↔ M1.3 swapped) · production builds only at milestone boundaries, before deploys, or after significant changes
 **Goal:** get a working, secure UstaPlan MVP on a real HTTPS URL as early as possible and test it on a real phone throughout development. **The product scope and design direction are unchanged.** Only the process is lighter.
 
-**Inputs:** [Spec v1.4](product/01_PRODUCT_AND_TECH_SPEC.md) (primary) · [DATA_MODEL.md](architecture/DATA_MODEL.md) (schema) · [Privacy & data requests](setup/PRIVACY_AND_DATA_REQUESTS.md) · [Setup checklist](setup/05_SETUP_CHECKLIST.md) · [Design preview](design/04_DESIGN_PREVIEW.html) · [Implementation prompt](architecture/02_CODEX_CLAUDE_PROMPT.md) (supporting) · [Schema starter](architecture/03_SCHEMA_STARTER.sql) (historical)
+**Inputs:** [Spec v1.5](product/01_PRODUCT_AND_TECH_SPEC.md) (primary) · [DATA_MODEL.md](architecture/DATA_MODEL.md) (schema) · [Privacy & data requests](setup/PRIVACY_AND_DATA_REQUESTS.md) · [Setup checklist](setup/05_SETUP_CHECKLIST.md) · [Design preview](design/04_DESIGN_PREVIEW.html) · [Implementation prompt](architecture/02_CODEX_CLAUDE_PROMPT.md) (supporting) · [Schema starter](architecture/03_SCHEMA_STARTER.sql) (historical)
 
 **Priorities:** simplicity → correctness → security → mobile usability → maintainability → low cost.
 **Workflow:** one task at a time on explicit instruction ([CLAUDE.md](../CLAUDE.md)); task status lives in [PROGRESS.md](PROGRESS.md), session state in [HANDOVER.md](HANDOVER.md).
@@ -16,7 +18,7 @@
 | Docker, local Supabase stack | Hosted **Supabase Free dev project**; Supabase CLI over the network (`link`, `db push`, `gen types`), no Docker |
 | pgTAP, Playwright suites, device matrices, Lighthouse targets, GitHub Actions CI | typecheck + lint + build, manual phone smoke tests, a few Vitest tests for critical logic, one **security check script** |
 | Deployment at M11/M16 | Vercel + Supabase in **M0**; the phone tests the HTTPS URL from the first feature on |
-| 17 milestones, 70+ tasks | **7 milestones, 37 tasks** |
+| 17 milestones, 70+ tasks | **7 milestones, 37 tasks** (41 since v3.2) |
 | ~20 RPCs | **9 RPCs**; plain RLS CRUD everywhere else; reminder/digest logic in one TypeScript endpoint |
 
 ---
@@ -80,7 +82,7 @@ ustaplan/
 │   ├── migrations/            # hand-written, forward-only; no secrets
 │   └── seed-dev.sql           # fake data for the DEV project only
 ├── scripts/                   # admin-only, run locally with tsx
-│   ├── create-artisan.ts · reset-password.ts
+│   ├── create-artisan.ts · reset-password.ts · create-admin.ts (M6.2)
 │   ├── security-check.ts      # two-account RLS / link / storage checks against DEV
 │   ├── delete-customer-data.ts · export-customer-data.ts · backup.sh   (M6)
 │   └── vault-secrets.sql.example
@@ -91,6 +93,7 @@ ustaplan/
 │   │   ├── layout.tsx · globals.css · manifest.ts · not-found.tsx · error.tsx
 │   │   ├── giris/ · gizlilik/ · cevrimdisi/
 │   │   ├── (app)/layout.tsx + bugun/ takvim/ isler/ isler/yeni/ isler/[id]/ musteriler/ musteriler/[id]/ bildirimler/ ayarlar/
+│   │   ├── admin/ (M6.2–M6.4: layout, page, ustalar/, ustalar/[id]/, mfa/)
 │   │   ├── t/[token]/page.tsx
 │   │   └── api/
 │   │       ├── t/[token]/media/[mediaId]/route.ts · photos/route.ts · photos/[mediaId]/route.ts
@@ -102,6 +105,7 @@ ustaplan/
 │   │   ├── env.ts · supabase/{server,browser,admin}.ts
 │   │   ├── share-link.ts · public-job.ts (DTO) · push.ts (render + send + dispatch)
 │   │   ├── domain/            # labels, job-status, scheduling, phone, whatsapp, money, time, search-fold
+│   │   ├── admin/             # auth (requireAdmin), accounts, stats — server-only (M6.2–M6.4)
 │   │   └── media/             # prepare-image.ts (client), sniff.ts (server)
 │   └── types/database.ts      # generated
 └── tests/                     # only: share-link, scheduling/time, public DTO allowlist
@@ -132,7 +136,8 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 - **Accounts:** Supabase email/password. **Signup is disabled** in the dashboard. There's no signup UI.
 - **Admin scripts:**
   - `scripts/create-artisan.ts --email --name` creates the auth user (`email_confirm: true`) plus the profile, shows a generated temporary password once, and rolls back on failure.
-  - `scripts/reset-password.ts --email` resets a password. The admin can also use the dashboard.
+  - `scripts/reset-password.ts --email` resets a password. The admin can also use the dashboard or, from M6.3, the admin panel.
+  - `scripts/create-admin.ts --email` (M6.2) creates the single admin account (no `profiles` row) and sets `app_metadata.role = "admin"`; prints a temporary password once.
 - **Login `/giris`:** email, password with show/hide, and the fixed forgot-password sentence.
 - **Session:** `@supabase/ssr` cookies. `proxy.ts` refreshes the session on artisan routes and skips `/t`, `/api/t`, `/api/internal`, `/gizlilik` and static assets. Every Server Action re-checks the user with server-verified claims (`getUser()`/`getClaims()`).
 - **Password change:**
@@ -143,6 +148,14 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 - **RLS:** owner-scoped on every table, column-level update grants, composite FKs; `anon` has nothing (DATA_MODEL §3).
 
 ---
+
+
+### 4.1 Admin panel (`/admin`, v3.2)
+- **Gate (`requireAdmin()` in `lib/admin/auth.ts`, server-only, `cache()`), on every page and every admin Server Action:** session via `getClaims()` → `app_metadata.role === "admin"` (only the service role can set `app_metadata`) → MFA assurance level `aal2`. No TOTP factor yet → enrollment page (QR, confirm a code); factor but `aal1` → challenge page. Anyone else → `notFound()` (404). `/admin` sends `noindex` and `no-store`.
+- **Account:** one separate auth user with **no `profiles` row**, so RLS gives it no artisan data. `/giris` is shared: `signIn` sends an admin to `/admin`; the `(app)` layout sends an admin who lands there to `/admin`.
+- **Data access:** reads and writes on the server through the existing admin client (`lib/supabase/admin.ts`). No RPC, no migration, no new dependency or chart library.
+- **Actions** (zod, `{ok, data} | {ok, error}`, confirmation dialog each): create artisan, reset password (temporary password shown once, never logged or stored), deactivate (`ban_duration` via `auth.admin.updateUserById` + delete the artisan's `push_subscriptions`), reactivate (`ban_duration: "none"`). No delete. Account logic shared with the scripts in `lib/admin/accounts.ts`.
+- **Figures** (TypeScript over admin-client queries; days and weeks in `Europe/Istanbul` via `lib/domain/time.ts`): jobs today / week / month vs the previous period; 12-week trend of jobs and new customers (CSS/SVG bars + table); active artisans 7/30 days (sign-in or activity); totals of artisans, customers, jobs by status, appointments; per-artisan counts; system health (push results 24 h, oldest pending, last sent, media count and storage). **Counts only:** no customer names, phones, addresses, notes, photos or job content.
 
 ## 5. Customer links
 
@@ -305,7 +318,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 | --- | --- | --- | --- |
 | Local dev (`npm run dev`) | **ustaplan-dev** (Free, Ireland `eu-west-1`, see T-10) | — | fake only |
 | Dev/test URL (M0 → M6) | ustaplan-dev | Production deployment on `<name>.vercel.app` | fake only |
-| Pilot (M6.3 →) | **ustaplan-prod** (second free project) | Same production deployment, env vars switched | real |
+| Pilot (M6.7 →) | **ustaplan-prod** (second free project) | Same production deployment, env vars switched | real |
 
 - Supabase Free allows **two active projects per organisation**, enough for dev + prod. Development data never enters the pilot project.
 - Phone testing uses the **production** `vercel.app` domain. Hobby's standard deployment protection puts a Vercel login in front of preview URLs, which customers couldn't open.
@@ -346,15 +359,16 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 2. `scheduling`: overlap (half-open), slot suggestion, Istanbul ↔ UTC around midnight.
 3. `public-dto`: the exact key set of `CustomerJobView`; the estimate, notes, phone and address are absent.
 
-**`scripts/security-check.ts`** runs against the **dev** project with two fake artisan accounts (A, B) and the anon key. From M4.5 the link checks also call the app over HTTP: run them against a local production build (`npm run build && npm run start`, or `SECURITY_CHECK_BASE_URL`), because `next dev` adds debug output to error pages. It's extended in M1.7, M4.5 and M5.9, and prints PASS/FAIL per check:
+**`scripts/security-check.ts`** runs against the **dev** project with two fake artisan accounts (A, B) and the anon key. From M4.5 the link checks also call the app over HTTP: run them against a local production build (`npm run build && npm run start`, or `SECURITY_CHECK_BASE_URL`), because `next dev` adds debug output to error pages. It's extended in M1.7, M4.5, M5.9, M6.2 and M6.3, and prints PASS/FAIL per check:
 - **RLS:** B can't select, insert, update or delete A's rows in any table, including with guessed IDs or cross-owner foreign keys. Anon gets nothing. Workflow columns (`jobs.status`, appointments, requests, events) can't be written directly.
 - **Storage:** B can't read, list, upload into or delete A's paths. Anon can't read anything.
 - **Links:** tampered, old-version, disabled and unknown tokens give an identical 404. Revocation is immediate, including for media. Customer actions are refused on an invalid link.
 - **Exposure:** the customer page HTML and JSON contain no phone, address, note, estimate or private media. Public GETs don't write.
 - **Consistency:** a double cancel → one cancellation, one notification. Concurrent accept vs withdraw → one consistent outcome. Accepting a counter → old appointment superseded, exactly one new appointment.
 - **Push endpoint:** a missing or wrong bearer is rejected.
+- **Admin panel (M6.2–M6.3):** artisan and anon get 404 on `/admin/*` and can't call admin actions; an admin session at `aal1` is refused; a deactivated artisan can't sign in or refresh.
 
-**Real devices** (your phone, plus an iPhone/Android if available): checked in the relevant tasks and fully in M6.1. That covers HEIC upload, the voice recorder, install, and push with the app closed.
+**Real devices** (your phone, plus an iPhone/Android if available): checked in the relevant tasks and fully in M6.5. That covers HEIC upload, the voice recorder, install, and push with the app closed.
 
 ---
 
@@ -432,16 +446,20 @@ Tasks marked 🔑 need owner input or approval (dashboard work, secrets, migrati
 | M5.8 🔑 | Dispatcher endpoint (reminders, digest, retries, cleanup) + migration `cron` + Vault secrets (owner runs the SQL template) (approval) | 1-hour reminder and 08:00 digest arrive on the phone; no duplicates |
 | M5.9 | `security-check.ts` v3: cancel/reschedule consistency, dispatcher auth | All checks PASS |
 
-### M6 — Pilot readiness
-**Goal:** safe hand-over to 1–2 tradespeople.
+### M6 — Admin panel and pilot readiness
+**Goal:** an owner-only admin panel, then a safe hand-over to 1–2 tradespeople.
 
 | Task | Content | Done when |
 | --- | --- | --- |
-| M6.1 | Full mobile smoke pass (the scenarios in the setup checklist) on the available iPhone/Android; fix critical issues | No critical issues open |
-| M6.2 | `backup.sh`, `delete-customer-data.ts`, `export-customer-data.ts`, `docs/setup/RUNBOOK.md` | Dry runs succeed on dev |
-| M6.3 🔑 | **Prod** Supabase project, migrations pushed, Vault, signup off; Vercel Production env switched to prod; pilot accounts; prod smoke (approval; KVKK review done) | A pilot artisan logs in on their phone and receives a test push |
+| M6.1 | Scope-change docs for the admin panel: spec v1.5, plan v3.2, CLAUDE.md, DATA_MODEL note, README | The docs agree; the owner has reviewed the diff |
+| M6.2 🔑 | `requireAdmin()` + `/admin` shell + TOTP enroll/challenge + login redirects + `scripts/create-admin.ts`; create the admin account in **dev** (approval). security-check: artisan and anon get 404 on `/admin/*` and admin actions are refused; an admin session at `aal1` is refused | The owner logs in with TOTP on the deployed URL; security check passes |
+| M6.3 | **Ustalar:** list + detail + create / reset password / deactivate / reactivate; `lib/admin/accounts.ts` shared with the refactored scripts. security-check: a deactivated artisan can't sign in or refresh and has no push rows; reactivation restores login. Verify against the Supabase docs whether existing access tokens are cut at once; if not, the UI and docs state the ≤ 1 h JWT lifetime | The actions work end to end on dev with fake artisans A/B; security check passes |
+| M6.4 | **Genel bakış:** overview figures, 12-week trend, active artisans, system health; desktop + 360 px; `npm run build`, deploy (approval) | Figures match SQL counts on dev; build passes |
+| M6.5 | Full mobile smoke pass (the scenarios in the setup checklist) on the available iPhone/Android; fix critical issues | No critical issues open |
+| M6.6 | `backup.sh`, `delete-customer-data.ts`, `export-customer-data.ts`, `docs/setup/RUNBOOK.md` | Dry runs succeed on dev |
+| M6.7 🔑 | **Prod** Supabase project, migrations pushed, Vault, signup off; Vercel Production env switched to prod; pilot accounts; admin account (`create-admin.ts`) + TOTP enrolled in prod; prod smoke (approval; KVKK review done) | A pilot artisan logs in on their phone and receives a test push; the owner opens `/admin` in prod with TOTP |
 
-**Order:** M0 → M1 → M2 → M3 → M4 → M5 → M6, tasks in numeric order. **37 tasks.**
+**Order:** M0 → M1 → M2 → M3 → M4 → M5 → M6, tasks in numeric order. **41 tasks.**
 Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could move right after M1 if you want push verified early.
 
 ---
@@ -452,13 +470,13 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | Push delivery not guaranteed; iOS needs an installed PWA (16.4+) | Clear Settings copy; the Bugün screen and inbox stay authoritative; tested on real phones from M5.6 |
 | Fewer automated tests → regressions | Security script re-run after every migration; the 3 critical Vitest files; typed DB; smoke test per task |
 | Dev and prod both on Free: projects pause after ~7 idle days | The cron call keeps the active one awake; restore the dev project from the dashboard if it pauses |
-| No backups on Free | Weekly `backup.sh` (M6.2) |
+| No backups on Free | Weekly `backup.sh` (M6.6) |
 | Vercel Hobby is non-commercial | Upgrade before commercial use |
 | `pg_net` is fire-and-forget | The next 5-min cycle retries; immediate pushes don't depend on it |
-| Migration mistakes against the hosted DB (no local sandbox) | Small, reviewed, forward-only migrations; owner approval per push; dev project only until M6.3 |
+| Migration mistakes against the hosted DB (no local sandbox) | Small, reviewed, forward-only migrations; owner approval per push; dev project only until M6.7 |
 | Link holder acts as the customer | Owner-accepted; revoke/regenerate, no personal data, rate limits, audit events |
 | HEIC on non-Safari browsers | Lazy `heic2any` fallback |
-| KVKK cross-border transfer | Legal review before real customer data (gates M6.3) |
+| KVKK cross-border transfer | Legal review before real customer data (gates M6.7) |
 | Public GitHub repo | No secrets, Vault values or real data in git |
 
 ---
@@ -497,7 +515,12 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | T-14 | **M5.4 (owner):** no realtime subscriptions. The installed app and the customer page have no reload button, so one small client component calls `router.refresh()` when the page becomes visible again and on an interval (~30–60 s) while visible, paused while a sheet/dialog is open or an input has focus. No new dependency or service. Supabase Realtime was rejected: the customer side has no session (anon has nothing), and the artisan side would need a publication migration and a live connection. Closed/background apps rely on Web Push (M5.6–M5.7). | |
 | T-13 | **M3.1:** `save_appointment` keeps the DATA_MODEL signature; idempotency = same job + same times returns the existing (or replacement) appointment. Past times are allowed so a visit can be recorded late. Derived J2/J3 status changes write no extra `status_changed` event (the appointment event explains them). | |
 | T-11 | **M1.5 (owner):** manifest (`scope: "/"`, `start_url: /bugun`, standalone) + apple-icon + 192/512 icons moved forward from M5.5 so the iOS home-screen app stays standalone across tabs. | |
-| T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.3) stays in Frankfurt.** | |
+| A-1 | **v3.2 (owner):** owner-only admin panel at `/admin` (English route, a deliberate exception to the Turkish-routes rule; UI copy Turkish, *sen*). Built before the pilot as M6.1–M6.4 | ⚑ |
+| A-2 | **v3.2 (owner):** admin = separate auth user with `app_metadata.role = "admin"` and no profile; every admin page/action requires a TOTP-verified session (`aal2`); everyone else gets 404. Exactly one admin; no roles UI | ⚑ |
+| A-3 | **v3.2 (owner):** deactivation = auth ban + the artisan's push subscriptions deleted; data untouched; **customer links keep working**; reactivation restores it. No delete in the panel (erasure stays with the M6.6 scripts) | ⚑ |
+| A-4 | **v3.2:** the panel shows per-artisan counts only, never customer personal data or job content; figures computed in TypeScript with the admin client (no RPC, no migration, no chart library, no analytics service) | ⚑ |
+| A-5 | **v3.2:** no admin audit table; Supabase's auth audit log records user creation, password updates and bans. Temporary passwords are shown once and never logged or stored | |
+| T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.7) stays in Frankfurt.** | |
 
 ---
 

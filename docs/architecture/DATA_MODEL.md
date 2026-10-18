@@ -37,6 +37,8 @@ auth.users 1─1 profiles 1─* customers 1─* customer_addresses
 
 The admin script creates rows. No auth trigger.
 
+**Admin account (plan v3.2, A-2):** the single admin is an `auth.users` row with `raw_app_meta_data.role = 'admin'` and **no** `profiles` row, so every owner-scoped policy returns nothing for it. The admin panel reads and writes through the server-only admin client (service role). Deactivating an artisan uses the auth ban (`banned_until`) and deletes their `push_subscriptions`. **No schema change, RPC or migration** for the panel.
+
 ### customers
 | Column | Type | Rules |
 | --- | --- | --- |

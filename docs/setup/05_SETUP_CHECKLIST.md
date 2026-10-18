@@ -10,6 +10,7 @@
 - [ ] Configure separate trusted environment variables for server-only secret key and strong HMAC share-link signing key. Never expose them with `NEXT_PUBLIC_`.
 - [ ] Use a trusted local admin script to create pilot artisans with `auth.admin.createUser({email,password,email_confirm:true})`, then create `profiles` row. Don't place temporary passwords in source files, command history or git.
 - [ ] Confirm authenticated user can change password in settings using the current Supabase Auth-supported flow; manual administrator reset uses server-side `updateUserById`.
+- [ ] (Plan v3.2) Create the single admin account with `npm run admin:create-admin` (no `profiles` row, `app_metadata.role = admin`), confirm TOTP MFA is enabled in Auth settings, and enrol the authenticator app on first `/admin` sign-in, in dev (M6.2) and again in prod (M6.7). Keep the authenticator's recovery option safe: losing it means resetting the factor from the Supabase dashboard.
 - [ ] Test artisan A cannot read/write artisan B rows or files, including via guessed UUIDs; customer link does not reveal personal data or non-shared media.
 - [ ] Enable `pg_cron` and `pg_net`; store `app_base_url` and `cron_secret` in Supabase Vault (`scripts/vault-secrets.sql.example`); the `cron` migration creates the single 5-minute dispatch schedule (IMPLEMENTATION_PLAN §9).
 - [ ] Make a backup/export plan; Supabase Free does not replace operational backups. Monitor DB/Storage consumption.

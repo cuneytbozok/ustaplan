@@ -14,6 +14,7 @@ Data minimisation already built into the design:
 - The customer page never shows the customer's phone, address, other jobs, notes, audio, private photos, or the estimated price.
 - Photos are re-encoded in the browser, which removes EXIF and GPS data.
 - There are no analytics, no third-party scripts, and no tokens in application logs.
+- The owner's admin panel (`/admin`, plan v3.2) shows only per-artisan counts; it never shows customer names, phones, addresses, notes, photos or job content.
 
 **Open legal point:** both providers store data outside Turkey. Under KVKK Art. 9 (as amended in 2024), transfers abroad generally need a valid transfer mechanism, such as standard contractual clauses notified to the Authority. Resolve this with an advisor before the pilot uses real customer data.
 
@@ -43,4 +44,4 @@ Served at `/gizlilik` and linked from every customer job page as "Kişisel veril
 
 ## 4. Tradesperson account closure
 
-The administrator disables sign-in (Supabase dashboard → Users → ban user), agrees an export with the tradesperson if they want one, then deletes the auth user. Deleting it cascades the profile and all of that tradesperson's data, and the script removes their storage folder.
+The administrator disables sign-in (Supabase dashboard → Users → ban user, or *Devre dışı bırak* in the admin panel from M6.3), agrees an export with the tradesperson if they want one, then deletes the auth user. Deleting it cascades the profile and all of that tradesperson's data, and the script removes their storage folder.

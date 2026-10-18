@@ -3,15 +3,16 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-All **M5** tasks are complete (M5.9: security-check v3, 258/258 twice). M5 closes after the owner's deferred phone checks **D1–D7** (PROGRESS). Then M6.
+**M6.1** (admin panel scope-change docs) is complete and committed. The deferred M5 phone checks **D1–D7** are still open.
 
 ## Last completed task
-**M5.9**: `scripts/security-check.ts` v3 — dispatcher auth and concurrent customer actions (accept vs withdraw, two requests, double accept, double cancel).
+**M6.1**: admin panel scope change (spec v1.5, plan v3.2, CLAUDE.md, DATA_MODEL, README, setup and privacy docs), approved by the owner.
 
 ## Current or interrupted task
 None.
 
 ## Key decisions (still relevant)
+- **Admin panel (plan v3.2, owner 2026-10-18):** `/admin` (English route by owner choice), one admin = separate auth user with `app_metadata.role = admin` and no profile, password + TOTP (`aal2`) required, everyone else 404. Deactivate = auth ban + delete push subscriptions; customer links keep working. Counts only, no customer personal data. Server-side admin client; no RPC, migration or chart library. Tasks M6.1–M6.4; old M6.1–M6.3 → M6.5–M6.7. Spec v1.5 §2.1, plan §4.1, decisions A-1…A-5.
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
 - **Freshness (T-14, owner 2026-10-18):** no Realtime; `AutoRefresh` refreshes on visibility/focus + every 30 s while visible, not while a sheet is open (sheets with `data-state="closed"` ignored) or a text field is focused. Push covers closed apps.
 - **Service worker (M5.5):** network-only navigations with an offline fallback, never caches HTML/API, ignores `/t/*`; push payload contract `{title, body, url, tag}` (url = same-origin path, tag = dedupe key). Registered only in production builds, so test PWA behaviour with `npm run build && npm run start` (`prod-check`), and unregister it in the pane afterwards.
@@ -29,35 +30,29 @@ None.
 - **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
 - **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Tests executed (M5.9)
-security-check 258/258 twice in a row against a local production build (:3200); typecheck, lint. The last full `npm run build` (M5.8) covers the current app code.
+## Tests executed (M6.1)
+Docs only. A grep for stale `v1.4` / `37 tasks` / old M6 numbers is clean (the remaining hits are historical entries). There's nothing to typecheck or build.
 
 ## Known bugs and blockers
-- `npm audit`: high advisories only in dev tooling (ESLint chain, shadcn CLI: braces/micromatch); accepted, none in runtime packages.
-- Supabase advisor: leaked-password protection off (owner decision before the pilot).
-- KVKK legal review of `/gizlilik` and cross-border transfer: open, blocks only M6.3.
-- `APP_BASE_URL` exists only for Production on Vercel, so preview deployments can't build share links (the sheet says so).
+- `npm audit`: high advisories only in dev tooling; accepted.
+- Supabase advisor: leaked-password protection is off (owner decides before the pilot, M6.7).
+- KVKK legal review of `/gizlilik` and the cross-border transfer: open, blocks only M6.7.
+- `APP_BASE_URL` exists only for Production on Vercel.
 
 ## Environment
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. Local commits not yet pushed: `5394618` (M5.8 close-out) and the M5.9 commit (script + docs only; no app change).
+None. These local commits aren't pushed yet: `5394618`, `228873e` and the M6.1 commit (docs only).
 
 ## Exact next action
-With the owner: run the deferred phone checks **D1–D7** (PROGRESS → Deferred owner phone checks) on the deployed app. Record each result; fix anything that fails (that work belongs to the M5 task it came from). When all pass, mark M5 closed in PROGRESS and stop. Next milestone task after that: **M6.1** (only when the owner says "start the next task").
+1. **M6.2**, only when the owner says "start the next task": `requireAdmin()`, the `/admin` shell, TOTP enrollment and challenge, login redirects, `scripts/create-admin.ts`. Check the current Supabase MFA docs and `getClaims()`/AAL docs first. Creating the admin account in dev needs approval.
+2. Separately with the owner: the phone checks D1–D7.
 
 ## Resume commands
 ```bash
 cd /Users/cuneytbozok/Documents/Projeler/Ustaplan
 ```
 ```bash
-git status && git log --oneline -15
-```
-```bash
-npm ci && npm run typecheck && npm run lint && npm test
-```
-Security check (production build; ports 3000/3100 may be busy): build, start `prod-check` from `.claude/launch.json`, then
-```bash
-APP_BASE_URL=http://localhost:3200 SECURITY_CHECK_BASE_URL=http://localhost:3200 npm run security-check
+git status && git diff --stat && git log --oneline -5
 ```
