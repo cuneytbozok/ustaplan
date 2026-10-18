@@ -1,16 +1,7 @@
 import { verifyCustomerToken } from "@/lib/customer-link";
-import { INVALID_LINK_MESSAGE } from "@/components/public/invalid-link";
+import { invalidLink as invalid, PRIVATE_HEADERS } from "@/lib/customer-api";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PRIVATE_HEADERS = {
-  "Cache-Control": "no-store",
-  "Referrer-Policy": "no-referrer",
-  "X-Robots-Tag": "noindex, nofollow",
-  "X-Content-Type-Options": "nosniff",
-};
-
-const invalid = () =>
-  new Response(INVALID_LINK_MESSAGE, { status: 404, headers: { ...PRIVATE_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
 
 /**
  * Token-verified media proxy (plan §5, P-10): re-checks the link on every

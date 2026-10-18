@@ -161,7 +161,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 - **GETs are read-only** (WhatsApp previews). There's no OG data and the title is generic.
 - **POST/DELETE:** explicit button + confirmation, `Origin` = `APP_BASE_URL`, zod, rate limits, and a `job_events` row with `actor_type='link_holder'`.
 - **Headers** on `/t/*`, `/api/t/*`, `/gizlilik`: `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`.
-- **Rate limits:** ≤ 10 uploads per hour, ≤ 20 active customer photos, ≤ 10 reschedule requests per day, per job.
+- **Rate limits:** ≤ 10 uploads per hour, ≤ 20 active customer photos, ≤ 10 reschedule requests per day, per job. Cancel needs no counter: only the first call on an open job changes anything, and cancelling again requires the artisan to reopen the job.
 - **Accepted risk (owner):** whoever holds an active link can perform its customer actions.
 
 **Customer capabilities**

@@ -21,6 +21,20 @@
         "3100"
       ],
       "port": 3100
+    },
+    {
+      "name": "prod-check",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "APP_BASE_URL=http://localhost:3200",
+        "npm",
+        "run",
+        "start",
+        "--",
+        "-p",
+        "3200"
+      ],
+      "port": 3200
     }
   ]
 }

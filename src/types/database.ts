@@ -603,6 +603,15 @@ export type Database = {
         Returns: Json
       }
       fold_tr: { Args: { input: string }; Returns: string }
+      public_cancel_job: {
+        Args: {
+          p_job_id: string
+          p_note?: string
+          p_reason: string
+          p_share_version: number
+        }
+        Returns: Json
+      }
       save_appointment: {
         Args: {
           p_appointment_id?: string

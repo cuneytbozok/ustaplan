@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
+import { CancelSheet } from "@/components/public/cancel-sheet";
 import { loadCustomerJob } from "@/lib/customer-link";
 import { whatsappHref } from "@/lib/domain/links";
 import { formatTRY } from "@/lib/domain/money";
@@ -28,7 +29,7 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
   const { token } = await params;
   const view = await loadCustomerJob(token);
   if (!view) notFound();
-  const { artisan, job, nextAppointment, agreedPrice, photos } = view;
+  const { artisan, job, nextAppointment, agreedPrice, photos, capabilities } = view;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -91,6 +92,8 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
           </a>
         </section>
       ) : null}
+
+      {capabilities.cancel ? <CancelSheet token={token} /> : null}
 
       <footer className="mt-auto pt-6 text-center text-xs text-muted-foreground">
         <Link href="/gizlilik" className="underline underline-offset-2">

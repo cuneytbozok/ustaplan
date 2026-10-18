@@ -27,7 +27,7 @@ export async function verifyCustomerToken(token: string) {
   if (error) throw new Error("job lookup failed");
   if (!data || !data.share_enabled) return null;
   if (!verifySignature(shareLinkEnv().secret, data.id, data.share_version, parsed.signature)) return null;
-  return { admin, jobId: data.id, ownerId: data.owner_user_id };
+  return { admin, jobId: data.id, ownerId: data.owner_user_id, shareVersion: data.share_version };
 }
 
 /** Loads the allowlisted CustomerJobView for a verified link (admin client, explicit columns only). */

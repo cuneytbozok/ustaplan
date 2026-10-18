@@ -225,6 +225,8 @@ Signature: `(job_id uuid, share_version int, …)`. Each one locks the job and r
 
 They insert the related notification (`push_status='pending'`) in the same transaction.
 
+`public_cancel_job` (M5.1): reason is required (one of the `cancelled_reason` codes); the note is ≤ 500 characters and required for `other`. Results: `ok · link_invalid · invalid_transition · invalid_input`. An already cancelled job returns `ok` without changes; a completed job is `invalid_transition`. The `job_cancelled` event (`actor_type='link_holder'`) and the notification payload carry the reason code, never the note. If the artisan reopens and the customer cancels again, the existing `cancel:<job_id>` notification is re-armed (unread, new payload, push `pending` again).
+
 Customer **photo** add and delete aren't RPCs. The route handler validates the token and checks the job state, rate limits and media ownership, then uses the admin client for the storage call and the row insert or soft-delete. Plain CRUD is enough because they are single-row changes.
 
 ### Notifications (no functions)

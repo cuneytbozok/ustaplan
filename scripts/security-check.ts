@@ -3,7 +3,8 @@
  * v1 (M1.7): RLS isolation for every table, anon denial, storage isolation,
  * workflow-column denial. M2.1: job RPCs reject foreign data and anon.
  * v2 (M4.5): customer links over HTTP (identical 404s, revocation, rotation),
- * page exposure, read-only GETs, media proxy restrictions. Extended in M5.9.
+ * page exposure, read-only GETs, media proxy restrictions. M5.1: customer
+ * cancel (RPC privileges, Origin, link checks, cascade, idempotency). Extended in M5.9.
  *
  *   npm run security-check
  *
@@ -20,7 +21,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { adminEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
+import { adminEnv, appEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
 import { createShareToken, signJobLink } from "@/lib/share-link";
 
 type Client = SupabaseClient;
@@ -247,6 +248,10 @@ async function main() {
     record("A's appointments unchanged after B's calls", (await countAppointments()) === before && (apptAfterB.data as { status: string } | null)?.status === "scheduled", `${await countAppointments()} rows`);
     expectPermissionDenied("anon cannot execute save_appointment", await anon.rpc("save_appointment", { p_job_id: ids.job, p_starts_at: later(3), p_ends_at: later(4) }));
     expectPermissionDenied("anon cannot execute close_appointment", await anon.rpc("close_appointment", { p_appointment_id: ids.appointment, p_outcome: "cancelled" }));
+    const cancelArgs = { p_job_id: ids.job, p_share_version: 1, p_reason: "changed_mind" };
+    expectPermissionDenied("anon cannot execute public_cancel_job", await anon.rpc("public_cancel_job", cancelArgs));
+    expectPermissionDenied("A (owner) cannot execute public_cancel_job", await a.client.rpc("public_cancel_job", cancelArgs));
+    expectPermissionDenied("B cannot execute public_cancel_job", await b.client.rpc("public_cancel_job", cancelArgs));
     const aNew = await a.client.rpc("save_appointment", { p_job_id: ids.job, p_starts_at: later(3), p_ends_at: later(4) });
     record("control: A save_appointment on own job → ok", rpcResult(aNew) === "ok", aNew.error?.message ?? rpcResult(aNew));
 
@@ -367,6 +372,47 @@ async function main() {
       record("after regenerate: new link → 200", (await get(`/t/${createShareToken(secret, ids.job, 2)}`)).status === 200, "new link fails");
       const lowered = await admin.from("jobs").update({ share_version: 1 }).eq("id", ids.job).select("id");
       record("a regenerated link can't be revived (version can't go down)", Boolean(lowered.error), "version lowered");
+
+      // Customer cancel (M5.1): POST only from our origin, through a valid link.
+      const current = createShareToken(secret, ids.job, 2);
+      const post = async (token: string, body: unknown, origin: string | null = appEnv().baseUrl) => {
+        const response = await fetch(`${base}/api/t/${token}/cancel`, {
+          method: "POST",
+          redirect: "manual",
+          headers: { "Content-Type": "application/json", ...(origin ? { Origin: origin } : {}) },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, headers: response.headers, body: await response.text() };
+      };
+      const jobState = async () =>
+        (await admin.from("jobs").select("status, cancelled_by, cancelled_reason").eq("id", ids.job).single()).data as
+          { status: string; cancelled_by: string | null; cancelled_reason: string | null };
+      const cancelNotifications = async () =>
+        (await admin.from("notifications").select("id", { count: "exact", head: true }).eq("job_id", ids.job).eq("dedupe_key", `cancel:${ids.job}`)).count;
+      const ok = { reason: "date_unsuitable", note: "" };
+      record("cancel GET is not allowed", (await get(`/api/t/${current}/cancel`)).status === 405, "GET accepted");
+      record("cancel from a foreign Origin → 403", (await post(current, ok, "https://evil.example")).status === 403, "accepted");
+      record("cancel without Origin → 403", (await post(current, ok, null)).status === 403, "accepted");
+      const oldLinkCancel = await post(valid, ok);
+      record("cancel through the regenerated (old) link → 404", oldLinkCancel.status === 404 && oldLinkCancel.body.includes("Bu bağlantı geçersiz"), `status ${oldLinkCancel.status}`);
+      record("cancel through a tampered link → 404", (await post(invalid.tampered, ok)).status === 404, "accepted");
+      record("cancel without a reason → 400", (await post(current, { note: "x" })).status === 400, "accepted");
+      record("cancel with 'Diğer' and no note → 400", (await post(current, { reason: "other", note: "  " })).status === 400, "accepted");
+      record("refused cancels changed nothing", (await jobState()).status !== "cancelled" && (await cancelNotifications()) === 0, JSON.stringify(await jobState()));
+      const done = await post(current, ok);
+      record("customer cancel → 200 with no-store", done.status === 200 && /no-store/.test(done.headers.get("cache-control") ?? ""), `status ${done.status}`);
+      const cancelled = await jobState();
+      record("job cancelled by customer with reason", cancelled.status === "cancelled" && cancelled.cancelled_by === "customer" && cancelled.cancelled_reason === "date_unsuitable", JSON.stringify(cancelled));
+      const futureLeft = await admin.from("appointments").select("id", { count: "exact", head: true }).eq("job_id", ids.job).eq("status", "scheduled").gt("ends_at", new Date().toISOString());
+      record("cascade: no future scheduled visit left", futureLeft.count === 0, `${futureLeft.count} left`);
+      const event = await admin.from("job_events").select("actor_type").eq("job_id", ids.job).eq("event_type", "job_cancelled");
+      record("one job_cancelled event by link_holder", event.data?.length === 1 && event.data[0].actor_type === "link_holder", JSON.stringify(event.data));
+      record("artisan got one customer_cancelled notification", (await cancelNotifications()) === 1, `${await cancelNotifications()}`);
+      record("repeat cancel → 200, nothing duplicated", (await post(current, ok)).status === 200 && (await cancelNotifications()) === 1, "duplicated");
+      const bSees = await b.client.from("notifications").select("id").eq("job_id", ids.job);
+      expectNoRows("B cannot see A's cancel notification", bSees);
+      const page2 = await get(`/t/${current}`);
+      record("cancelled job page offers no cancel button", page2.status === 200 && !page2.body.includes("İşi iptal et"), "button still shown");
     }
   } finally {
     // ---- Cleanup (cascades remove appointments, requests, media rows, events, notifications) ----

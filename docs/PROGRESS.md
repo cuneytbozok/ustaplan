@@ -12,9 +12,9 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | --- | --- |
 | Plan version | v3.1 (fast path) — **approved**; planning complete |
 | Current milestone | M5 |
-| Active task | none |
-| Next task | **M5.1** 🔑 (when the owner says "start the next task") |
-| Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` on dev |
+| Active task | **M5.1** 🔑 — done locally and on dev; phone check pending (needs an approved push) |
+| Next task | M5.2 (after M5.1 is closed, when the owner says "start the next task") |
+| Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` + `customer_cancel` on dev |
 | Implementation tasks | 37 total · 25 completed · 12 remaining |
 | Last updated | 2026-10-18 |
 
@@ -26,7 +26,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Create the Supabase **dev** project (or approve creating it via connector); provide the DB password for `supabase link` | M0.3 | Done: `xytwwudbnykackuxfeif`, Ireland (accepted, plan T-10) |
 | Create or connect the Vercel project to GitHub; paste the secret env vars | M0.4 | Done: project `ustaplan`, https://ustaplan.vercel.app |
 | Set Vercel Function Region to Dublin (`dub1`), near the Ireland DB (default is `iad1`) | before M1.3 | Done: owner set Dublin (2026-10-17) |
-| Approve each migration push to dev | M1.1 ✓, M2.1 ✓, M3.1 ✓, M5.1, M5.3, M5.8 | Ask per task (M3.1 approved 2026-10-18) |
+| Approve each migration push to dev | M1.1 ✓, M2.1 ✓, M3.1 ✓, M5.1 ✓, M5.3, M5.8 | Ask per task (M5.1 approved 2026-10-18) |
 | Leaked password protection (Supabase Auth, HaveIBeenPwned) is off; advisor warns | before pilot (M6.3) | Owner to decide; may need a paid plan |
 | Approve creating the fake test users in dev | M1.2 | Done (approved 2026-10-17) |
 | Customer-link secrets on Vercel: `SHARE_LINK_SECRET` (Production + Preview, separate random values) and `SUPABASE_SECRET_KEY` (dev project, Production); added via the CLI without printing, sensitive | M4.3 | Done (approved 2026-10-18). `SUPABASE_SECRET_KEY` had never been on Vercel (earlier features use the user session), so the first live customer link returned 500 until it was added and production redeployed |
@@ -96,7 +96,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 ## M5 — Customer actions, notifications, PWA, Web Push · depends on M4
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
-| M5.1 🔑 | Migration `customer_cancel` (`public_cancel_job`, approval) + cancel flow + in-app notification | Pending | |
+| M5.1 🔑 | Migration `customer_cancel` (`public_cancel_job`, approval) + cancel flow + in-app notification | In Progress (phone check pending) | `supabase/migrations/20261018060734_customer_cancel.sql`: `public_cancel_job(job_id, share_version, reason, note)`, definer, `search_path=''`, execute for `service_role` only. Locks the job, `link_invalid` unless `share_enabled` and the version match; reason required, note ≤ 500 and required for `other`; J6 cascade (visits not yet ended → cancelled, open requests → closed); `job_cancelled` event by `link_holder` with reason code (no note); `customer_cancelled` notification (inbox, push `pending`, dedupe `cancel:<job>`, payload title + customer first name + reason). Already cancelled → ok, no change; completed → `invalid_transition`; re-cancel after reopen re-arms the same notification (documented in DATA_MODEL §4). **PGlite 35/35.** Applied to dev with owner approval; `migration list` local = remote; `database.ts` regenerated. Route `POST /api/t/[token]/cancel`: Origin = `APP_BASE_URL` (403 otherwise) → token → zod body (≤ 4 KB) → RPC; invalid links get the same 404; responses no-store. No extra rate limit: cancel is self-limiting (documented in plan §5). `lib/customer-api.ts` now holds the shared /api/t headers (media proxy uses it). `CancelSheet` on the customer page (siz tone): six reasons, note required for Diğer, confirmation step with a summary, closes only after the server confirmed, then refreshes. **security-check 167/167** on a production build (19 new: anon/A/B can't execute the RPC; GET 405; foreign/missing Origin 403; old and tampered link 404; missing reason / Diğer without note 400 with nothing changed; real cancel → job cancelled by customer, no future visit, one link_holder event, one notification; repeat → nothing duplicated; B can't see it; cancelled page shows no button). **Local 375 px smoke** (production build, fake job of test account C): Diğer without note → error above the button (moved there after the first try showed it below the fold); confirm → "İptal edildi", button gone; artisan page shows "Müşteri iptal etti · Diğer · note", visit cancelled; reopen → Planlanacak and the same link offers cancel again; fixture removed. typecheck, lint, test 30/30, build pass. **Not yet verified:** cancel from a real phone on the deployed URL (needs push approval) |
 | M5.2 | Customer photo upload/delete + in-app notification | Pending | |
 | M5.3 🔑 | Migration `reschedule` (approval) + customer and artisan negotiation UI | Pending | |
 | M5.4 | Inbox: bell, badge, `/bildirimler` | Pending | |
