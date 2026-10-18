@@ -15,25 +15,38 @@ import {
   Wallet,
 } from "lucide-react";
 import { PhonePreview } from "@/components/landing/phone-preview";
+import { isSearchVisible, siteUrl } from "@/lib/site-settings";
 
 /**
  * Public landing page for signed-out visitors (owner request 2026-10-18,
- * plan L-1). Static: proxy.ts sends signed-in artisans to /bugun and the
+ * plans L-1, L-2). Static: proxy.ts sends signed-in artisans to /bugun and the
  * admin to /admin. No signup and no contact form: accounts are opened by
  * invitation during the pilot. No third-party scripts, nothing tracked.
  */
-export const metadata: Metadata = {
-  title: { absolute: "UstaPlan · Ustalar için iş ve randevu defteri" },
-  description:
-    "İşlerini, randevularını, müşterilerini ve fotoğraflarını tek yerde tut. Müşterine özel bağlantıyla iş takibi, tarih değişikliği ve iptal. Telefonundan, uygulama mağazası olmadan.",
-  robots: { index: true, follow: true },
-  openGraph: {
-    title: "UstaPlan · Ustalar için iş ve randevu defteri",
-    description: "İşlerini ve verdiğin sözleri unutma. İş, randevu ve müşteri takibi tek yerde.",
-    locale: "tr_TR",
-    type: "website",
-  },
-};
+const TITLE = "UstaPlan · Ustalar için iş ve randevu defteri";
+const DESCRIPTION =
+  "İşlerini, randevularını, müşterilerini ve fotoğraflarını tek yerde tut. Müşterine özel bağlantıyla iş takibi, tarih değişikliği ve iptal. Telefonundan, uygulama mağazası olmadan.";
+
+/** Indexable only after the owner opens search visibility in /admin/site (plan L-2); hidden by default. */
+export async function generateMetadata(): Promise<Metadata> {
+  const visible = await isSearchVisible();
+  const base = siteUrl();
+  return {
+    title: { absolute: TITLE },
+    description: DESCRIPTION,
+    ...(base ? { metadataBase: new URL(base), alternates: { canonical: "/" } } : {}),
+    robots: visible ? { index: true, follow: true } : { index: false, follow: false },
+    openGraph: {
+      title: TITLE,
+      description: "İşlerini ve verdiğin sözleri unutma. İş, randevu ve müşteri takibi tek yerde.",
+      locale: "tr_TR",
+      type: "website",
+      siteName: "UstaPlan",
+      ...(base ? { url: "/" } : {}),
+    },
+    twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  };
+}
 
 const FEATURES = [
   {
@@ -116,9 +129,33 @@ const FAQ = [
   },
 ] as const;
 
+/** Structured data for search results: the app and the FAQ (data only, not a script that runs). */
+function StructuredData() {
+  const data = [
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "UstaPlan",
+      description: DESCRIPTION,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "iOS, Android, Web",
+      inLanguage: "tr",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "TRY", description: "Pilot süresince ücretsiz" },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQ.map(({ q, a }) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })),
+    },
+  ];
+  // "<" escaped so the JSON can never close the tag.
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }} />;
+}
+
 export default function LandingPage() {
   return (
     <div className="flex flex-1 flex-col">
+      <StructuredData />
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4">
           <Link href="/" className="flex items-center gap-2" aria-label="UstaPlan ana sayfa">

@@ -99,9 +99,15 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
 
   // ---- Landing page (owner request, plan L-1): public for signed-out visitors, never for sessions ----
   const landing = await get(base, "/");
-  record("landing: anon GET / → 200 public page, indexable, links to login",
-    landing.status === 200 && landing.body.includes("İşlerini ve verdiğin sözleri unutma") && landing.body.includes('href="/giris"') && /<meta name="robots" content="index, follow"/.test(landing.body),
-    `${landing.status}`);
+  record("landing: anon GET / → 200 public page linking to login",
+    landing.status === 200 && landing.body.includes("İşlerini ve verdiğin sözleri unutma") && landing.body.includes('href="/giris"'), `${landing.status}`);
+  const appPage = await get(base, "/giris");
+  record("app pages stay noindex (login page)", /<meta name="robots" content="noindex, nofollow"/.test(appPage.body), "no noindex meta");
+
+  // app_settings (plan L-2): service role only.
+  const anonClient = createClient(url, publishableKey, { auth: { persistSession: false } });
+  const anonRead = await anonClient.from("app_settings").select("key");
+  record("app_settings: anon can't read", Boolean(anonRead.error) || !anonRead.data?.length, "rows visible");
 
   // ---- Artisan A ----
   const signInArtisan = async () => {
@@ -116,6 +122,9 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
     record(`admin: artisan GET ${path} → 404, nothing about the panel`,
       response.status === 404 && !response.body.includes("Yönetim"), `${response.status}`);
   }
+  const artisanRead = await artisan.client.from("app_settings").select("key");
+  const artisanWrite = await artisan.client.from("app_settings").upsert({ key: "search_visibility", value: { visible: true } });
+  record("app_settings: artisan can't read or write", (Boolean(artisanRead.error) || !artisanRead.data?.length) && Boolean(artisanWrite.error), "accessible");
   const artisanHome = await get(base, "/", artisan.cookie());
   record("landing: signed-in artisan GET / → /bugun", artisanHome.status === 307 && artisanHome.location === "/bugun", `${artisanHome.status} ${artisanHome.location}`);
   await artisan.client.auth.updateUser({ data: { role: "admin" } });
@@ -170,6 +179,7 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
     );
     record("admin: its user-scoped session sees no artisan rows (RLS)", leaks.every((n) => n === 0), JSON.stringify(leaks));
 
+    await searchVisibilityChecks(ctx, { cookie: session.cookie(), adminEmail: email, adminPassword: password, artisanSession: signInArtisan });
     await accountActionChecks(ctx, { cookie: session.cookie(), adminId, adminEmail: email, adminPassword: password, artisanSession: signInArtisan });
     await session.client.auth.signOut({ scope: "local" });
   } finally {
@@ -252,5 +262,58 @@ async function accountActionChecks(
   } finally {
     await admin.from("push_subscriptions").delete().eq("owner_user_id", id);
     await admin.auth.admin.deleteUser(id);
+  }
+}
+
+/** Plan L-2: the admin switch drives the landing page robots meta, robots.txt and sitemap; nobody else can flip it. */
+async function searchVisibilityChecks(
+  ctx: AdminCheckContext,
+  who: { cookie: string; adminEmail: string; adminPassword: string; artisanSession: () => Promise<ReturnType<typeof cookieSession>> },
+) {
+  const { url, publishableKey, admin, base, record } = ctx;
+  const toggle = actionId("src/actions/admin.ts", "setSearchVisibility");
+  const stored = async () => {
+    const { data } = await admin.from("app_settings").select("value").eq("key", "search_visibility").maybeSingle();
+    return (data?.value as { visible?: unknown } | null)?.visible === true;
+  };
+  const original = await stored();
+  const state = async () => {
+    const page = await get(base, "/");
+    const robots = await get(base, "/robots.txt");
+    const sitemap = await get(base, "/sitemap.xml");
+    return {
+      index: /<meta name="robots" content="index, follow"/.test(page.body),
+      noindex: /<meta name="robots" content="noindex, nofollow"/.test(page.body),
+      robotsAll: /Disallow: \/\s*$/m.test(robots.body),
+      robotsPrivate: robots.body.includes("Disallow: /admin") && robots.body.includes("Allow: /"),
+      sitemapHasHome: sitemap.body.includes("<loc>"),
+    };
+  };
+  try {
+    // Negative controls: anon, artisan and an aal1 admin try to open it.
+    const artisan = await who.artisanSession();
+    const aal1 = cookieSession(url, publishableKey);
+    await aal1.client.auth.signInWithPassword({ email: who.adminEmail, password: who.adminPassword });
+    await callAction(base, "/admin/site", toggle, [!original]);
+    await callAction(base, "/admin/site", toggle, [!original], artisan.cookie());
+    await callAction(base, "/admin/site", toggle, [!original], aal1.cookie());
+    record("search visibility: anon / artisan / aal1 admin can't change it", (await stored()) === original, "changed");
+    await artisan.client.auth.signOut({ scope: "local" });
+    await aal1.client.auth.signOut({ scope: "local" });
+
+    const sitePage = await get(base, "/admin/site", who.cookie);
+    record("search visibility: /admin/site shows the switch to the admin",
+      sitePage.status === 200 && sitePage.body.includes("Arama motorlarında görünürlük") && sitePage.body.includes(original ? "Görünür" : "Gizli"), `${sitePage.status}`);
+    const off = await callAction(base, "/admin/site", toggle, [false], who.cookie);
+    const hidden = await state();
+    record("search visibility hidden: / noindex, robots.txt disallows everything, empty sitemap",
+      off.status === 200 && hidden.noindex && hidden.robotsAll && !hidden.sitemapHasHome, JSON.stringify(hidden));
+    const on = await callAction(base, "/admin/site", toggle, [true], who.cookie);
+    const shown = await state();
+    record("search visibility open: / index, robots.txt allows / but not app paths, sitemap lists /",
+      on.status === 200 && shown.index && shown.robotsPrivate && !shown.robotsAll && shown.sitemapHasHome, JSON.stringify(shown));
+  } finally {
+    await callAction(base, "/admin/site", toggle, [original], who.cookie);
+    record("search visibility restored to its previous value", (await stored()) === original, "not restored");
   }
 }

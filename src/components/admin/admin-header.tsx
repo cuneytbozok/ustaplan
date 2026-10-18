@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/admin", label: "Genel bakış" },
   { href: "/admin/ustalar", label: "Ustalar" },
+  { href: "/admin/site", label: "Site" },
 ] as const;
 
 export function AdminHeader({ children }: { children: React.ReactNode }) {

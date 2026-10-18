@@ -64,7 +64,7 @@ If the docs conflict and the plan doesn't resolve it, ask the owner.
 - KVKK notice at `/gizlilik`
 - WhatsApp, call and map deep links
 - Installable PWA
-- **Public landing page** at `/` for signed-out visitors (plan L-1): promotion and a login link only; no signup, no contact form, no analytics
+- **Public landing page** at `/` for signed-out visitors (plans L-1, L-2): promotion and a login link only; no signup, no contact form, no analytics. SEO metadata; search visibility switched in `/admin/site` (hidden by default); every other page is always `noindex`
 - **Owner-only admin panel** at `/admin` (spec v1.5 §2.1, plan §4.1, M6.1–M6.4): artisan list, create, temporary-password reset, deactivate/reactivate, high-level usage figures (counts only). One admin, password + TOTP
 
 **Out of scope, never add:**

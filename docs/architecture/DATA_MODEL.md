@@ -182,6 +182,16 @@ One user can have many devices. Logout deletes the current device's row, so a sh
 
 ---
 
+### app_settings (plan L-2, migration `site_settings`)
+| Column | Type | Rules |
+| --- | --- | --- |
+| key | text PK | check `key in ('search_visibility')` |
+| value | jsonb | `search_visibility`: `{ "visible": boolean }`; missing row = hidden |
+| updated_at | timestamptz | `touch_updated_at` |
+| updated_by | uuid null | FK `auth.users` on delete set null (the admin) |
+
+RLS on, no policies, all privileges revoked from `anon` and `authenticated`: only the server (secret key) reads it (`lib/site-settings.ts`, tagged cache) and the admin action writes it.
+
 ## 3. Grants and RLS (role `authenticated`)
 
 All policies check `owner_user_id = (select auth.uid())` (`id` for profiles). `anon` has no table privileges and no function `execute` rights. The `core` migration also removes `anon` from the schema's default privileges. PostgreSQL's built-in `EXECUTE` for `PUBLIC` can't be removed per schema, so **every new function must `revoke execute … from public, anon`** and grant only what it needs. **Plain RLS-protected CRUD is the default.** RPCs exist only where several rows must change together (§4).
@@ -198,6 +208,7 @@ All policies check `owner_user_id = (select auth.uid())` (`id` for profiles). `a
 | job_events | own | — (RPCs + trigger) | — | — |
 | notifications | own | — (server) | `read_at` | — |
 | push_subscriptions | own | own | — | own |
+| app_settings | — | — | — | — (service role only) |
 
 `jobs.status` and the `cancelled_*`/`completed_at` columns aren't in the update grant, so status changes can only go through `change_job_status`. `share_enabled`/`share_version` are plain updates. The trigger in §5 logs them as events.
 

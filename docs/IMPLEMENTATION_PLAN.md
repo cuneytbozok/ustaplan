@@ -128,6 +128,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 | `reschedule` | M5.3 | `public_request_reschedule`, `public_withdraw_request`, `public_accept_counter`, `respond_to_request` (+ internal `reschedule_swap`) |
 | `appointment_fk_deferred` | M5.3 (fix) | The two appointment self-reference FKs checked at commit, so job/account deletes cascade after a swap |
 | `cron` | M5.8 | `pg_cron`/`pg_net` schedule using Vault secret names |
+| `site_settings` | L.2 | `app_settings` (service role only) for the landing page's search visibility |
 
 ---
 
@@ -521,6 +522,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | A-4 | **v3.2:** the panel shows per-artisan counts only, never customer personal data or job content; figures computed in TypeScript with the admin client (no RPC, no migration, no chart library, no analytics service) | ⚑ |
 | A-6 | **M6.3:** a deactivated artisan's refresh is refused at once, but an already-issued access token stays valid until it expires (≤ 1 h), because the app checks JWTs locally with `getClaims()`. Accepted; the confirmation text says so. The admin changes their own password at `/admin/sifre` (the shared Ayarlar form) | |
 | L-1 | **Owner, 2026-10-18:** public landing page at `/` for signed-out visitors (`src/app/page.tsx`, static; illustration drawn with the app tokens in `components/landing/phone-preview.tsx`). Sections: hero, features, how it works, customer link, FAQ, login. No signup and no contact button (pilot accounts by invitation); FAQ says free during the pilot. *sen* tone like the artisan app. The only indexable page (`robots: index`); the root layout stays `noindex`. Proxy: signed-out visitors may open `/` and `/giris`; sessions on `/` go to `/bugun` or `/admin` | |
+| L-2 | **Owner, 2026-10-18:** SEO for `/` (canonical from `APP_BASE_URL`, Open Graph + share image `(landing)/opengraph-image.tsx` scoped to the landing route group, Twitter card, JSON-LD SoftwareApplication + FAQPage) and a **search-visibility switch** at `/admin/site`, stored in `app_settings`, **hidden by default**. Hidden: `/` is `noindex, nofollow`, `robots.txt` disallows everything, `sitemap.xml` is empty. Visible: `/` is indexable, `robots.txt` allows `/` and disallows the app paths, `sitemap.xml` lists `/`. Every other page stays `noindex` (root layout). Read through `'use cache'` + `cacheTag('site-settings')`; the admin action calls `updateTag`, so changes apply at once; any read error means hidden | |
 | A-5 | **v3.2:** no admin audit table; Supabase's auth audit log records user creation, password updates and bans. Temporary passwords are shown once and never logged or stored | |
 | T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.7) stays in Frankfurt.** | |
 

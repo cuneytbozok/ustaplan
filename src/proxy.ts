@@ -27,10 +27,10 @@ export const config = {
     /*
      * Artisan routes (session refresh + login redirects). Skipped: customer
      * links, the cron dispatcher (/api/internal), the privacy notice
-     * (/gizlilik), Next.js internals and static files (anything with a file
-     * extension).
+     * (/gizlilik), the landing page's share image, Next.js internals and
+     * static files (anything with a file extension).
      */
-    "/((?!t/|t$|api/t/|api/internal/|gizlilik|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)",
+    "/((?!t/|t$|api/t/|api/internal/|gizlilik|opengraph-image|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)",
     // Customer link pages only: the token gate above. /api/t answers 404 itself.
     "/t/:token",
   ],

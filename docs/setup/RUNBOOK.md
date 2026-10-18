@@ -12,6 +12,7 @@ Sign in at `/giris` with the admin account; `/admin` asks for the authenticator 
 | Forgotten password | *Ustalar → (artisan) → Geçici şifre oluştur*. The old password stops working. |
 | Pause an artisan | *Devre dışı bırak*: no sign-in, no session refresh, push devices removed. An already open session ends within 1 h. Data and customer links stay. *Yeniden etkinleştir* undoes it (notifications are turned on again per device). |
 | Your own password | *Şifre* in the panel header. |
+| Search-engine visibility | *Site → Arama motorlarına aç / gizle*. Hidden by default: the landing page is public but `noindex`, `robots.txt` blocks crawling. After opening it, add the site and `/sitemap.xml` in Google Search Console to speed up indexing. |
 | Lost authenticator | `npm run admin:create-admin -- --email <admin email> --reset-mfa`, then sign in and scan a new QR. |
 | First admin account (once per project) | `npm run admin:create-admin -- --email <your email>`; prints a temporary password once. Change it under *Şifre*. |
 

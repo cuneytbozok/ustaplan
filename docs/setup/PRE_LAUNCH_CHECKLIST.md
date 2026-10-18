@@ -34,4 +34,5 @@ This is a to-do list, not legal advice: the KVKK items need a qualified advisor.
 ## 5. Final checks before M6.7
 
 - [ ] **Phone tests:** M6.5 scenarios S1–S11 and D1–D7 in PROGRESS, on an iPhone and an Android phone.
+- [ ] **Open search visibility** in `/admin/site` once the tests are done and the landing page copy is final (prod: after M6.7, so search engines index the real domain); then add the site and `/sitemap.xml` in Google Search Console.
 - [ ] **M6.7 steps**, each approved separately: create the prod project in Frankfurt, push the migrations, store the Vault secrets, switch the Vercel env to prod, create the pilot artisans in the panel, then a prod smoke test (setup checklist, RUNBOOK §3 steps 1 and 5).

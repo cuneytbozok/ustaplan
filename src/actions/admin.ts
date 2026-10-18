@@ -1,10 +1,11 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { createArtisanAccount, resetArtisanPassword as resetPassword, setArtisanActive as setActive } from "@/lib/admin/accounts";
 import { getAdminGate, NOT_ALLOWED } from "@/lib/admin/auth";
+import { SITE_SETTINGS_TAG } from "@/lib/site-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -62,6 +63,21 @@ export async function setArtisanActive(userId: string, active: boolean): Promise
   if (!input.success) return { ok: false, error: "Usta bulunamadı." };
   const result = await setActive(createAdminClient(), input.data.id, input.data.active);
   if (!result.ok) return { ok: false, error: result.code === "not_found" ? "Usta bulunamadı." : "Hesap güncellenemedi. Tekrar dene." };
+  refresh();
+  return { ok: true, data: undefined };
+}
+
+/** Search-engine visibility of the landing page (plan L-2); expires the cached setting at once. */
+export async function setSearchVisibility(visible: boolean): Promise<ActionResult> {
+  const gate = await getAdminGate();
+  if (gate.kind !== "ok") return { ok: false, error: NOT_ALLOWED };
+  const input = z.boolean().safeParse(visible);
+  if (!input.success) return { ok: false, error: "Geçersiz değer." };
+  const { error } = await createAdminClient()
+    .from("app_settings")
+    .upsert({ key: "search_visibility", value: { visible: input.data }, updated_by: gate.userId });
+  if (error) return { ok: false, error: "Ayar kaydedilemedi. Tekrar dene." };
+  updateTag(SITE_SETTINGS_TAG);
   refresh();
   return { ok: true, data: undefined };
 }

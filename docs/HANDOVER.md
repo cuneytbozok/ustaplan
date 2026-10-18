@@ -6,7 +6,7 @@ _Rewritten at the end of every task. Last updated: 2026-10-18._
 Admin panel **M6.1–M6.4** and **M6.6** are complete and deployed. **M6.5** (phone smoke pass) and **M6.7** (prod) are blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
 
 ## Last completed task
-**L.1** (owner request): public landing page at `/` (plan L-1), security-check 290/290. Before that **M6.6**: `backup.sh` (+ `backup-storage.ts` / `restore-storage.ts`), `export-customer-data.ts`, `delete-customer-data.ts`, `docs/setup/RUNBOOK.md`.
+**L.2** (owner request): SEO for `/` + search-visibility switch at `/admin/site` (migration `site_settings` applied to dev; hidden by default), security-check 298/298. Before that **L.1** (owner request): public landing page at `/` (plan L-1), security-check 290/290. Before that **M6.6**: `backup.sh` (+ `backup-storage.ts` / `restore-storage.ts`), `export-customer-data.ts`, `delete-customer-data.ts`, `docs/setup/RUNBOOK.md`.
 
 ## Current or interrupted task
 None. M6.5 and M6.7 are **Blocked** (owner phones; KVKK review + prod approvals).
