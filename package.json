@@ -12,6 +12,8 @@
     "admin:create-artisan": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/create-artisan.ts",
     "admin:reset-password": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/reset-password.ts",
     "admin:create-admin": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/create-admin.ts",
+    "admin:export-customer": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/export-customer-data.ts",
+    "admin:delete-customer": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/delete-customer-data.ts",
     "security-check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/security-check.ts"
   },
   "dependencies": {

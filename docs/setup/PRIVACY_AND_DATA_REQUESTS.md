@@ -35,13 +35,13 @@ Served at `/gizlilik` and linked from every customer job page as "Kişisel veril
 1. **Receive.** The customer contacts the tradesperson, or rarely the administrator. The tradesperson forwards the request to the administrator with the job or customer name. Do not send the data itself over chat.
 2. **Verify.** The tradesperson confirms the requester is that customer, for example by calling the phone number on record. No ID documents are collected.
 3. **Identify.** The administrator finds the `customer_id` in the Supabase dashboard (Table Editor → `customers`, filtered by the tradesperson).
-4. **Dry run.** `npx tsx scripts/delete-customer-data.ts --customer <uuid>` lists what will be removed (number of jobs, appointments, media files, events, notifications) without changing anything.
-5. **Execute.** Re-run with `--confirm`. The script removes the storage objects first, then deletes the customer row and everything that cascades from it (jobs, appointments, requests, media rows, events, notifications) in one transaction. It is safe to repeat if interrupted.
-6. **Access requests.** `scripts/export-customer-data.ts --customer <uuid>` produces a JSON summary plus photo files for the tradesperson to hand over.
+4. **Dry run.** `npm run admin:delete-customer -- --customer <uuid>` lists what will be removed (number of jobs, appointments, media files, events, notifications) without changing anything.
+5. **Execute.** Re-run with `--confirm`. The script removes the storage objects first, then the customer's jobs (cascading appointments, requests, media rows, events, notifications), then the customer row (cascading addresses). Each step is atomic and the whole run is safe to repeat if interrupted.
+6. **Access requests.** `npm run admin:export-customer -- --customer <uuid> --out <folder outside the repository>` produces `data.json` plus the job's photos and voice notes for the tradesperson to hand over.
 7. **Record.** Add a line to a private request log kept outside the repository: date, request type, pseudonymous customer id, completed date. Never record the customer's name or phone in the repository.
 8. **Respond** within 30 days (KVKK Art. 13).
 9. **Backups.** Local backups (`scripts/backup.sh`) are kept for at most 4 weeks, so erased data leaves backups within that period. Never restore a backup without re-applying erasures recorded in the request log.
 
 ## 4. Tradesperson account closure
 
-The administrator disables sign-in (Supabase dashboard → Users → ban user, or *Devre dışı bırak* in the admin panel from M6.3), agrees an export with the tradesperson if they want one, then deletes the auth user. Deleting it cascades the profile and all of that tradesperson's data, and the script removes their storage folder.
+The administrator disables sign-in (Supabase dashboard → Users → ban user, or *Devre dışı bırak* in the admin panel from M6.3), agrees an export with the tradesperson if they want one, then deletes the auth user. Deleting it cascades the profile and all of that tradesperson's data; the nightly storage cleanup removes their files within a day (RUNBOOK §4).

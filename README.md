@@ -56,7 +56,12 @@ npm run admin:create-artisan -- --email usta@ornek.com --name "Ahmet Usta"
 npm run admin:reset-password -- --email usta@ornek.com
 npm run admin:create-admin -- --email sahip@ornek.com          # the single /admin account
 npm run admin:create-admin -- --email sahip@ornek.com --reset-mfa   # lost authenticator
+npm run admin:export-customer -- --customer <uuid> --out ~/UstaPlan-exports   # KVKK access request
+npm run admin:delete-customer -- --customer <uuid> [--confirm]               # KVKK erasure (dry run without --confirm)
+scripts/backup.sh ~/UstaPlan-backups                                         # weekly backup (needs pg_dump + SUPABASE_DB_URL)
 ```
+
+Operations (backups, restore, data requests, incidents, secrets): [docs/setup/RUNBOOK.md](docs/setup/RUNBOOK.md).
 
 Both print a generated temporary password once. Share it privately; the artisan changes it in Ayarlar.
 
