@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.7** (immediate pushes for cancel, date request, counter accepted) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1–M5.6 are complete.
+**M5.7** is complete (immediate pushes + T-15 stale-notification fixes, deployed `c3ea325`). Its T-15 phone checks are deferred to the end of M5 (**PROGRESS → Deferred owner phone checks D1–D5**). **M5.8** 🔑 (dispatcher, cron, Vault) is starting.
 
 ## Last completed task
-**M5.6** (`b46cd95`, `2836a48`, closed in `d74b9fc`): Web Push subscriptions + test push, confirmed on the owner's iPhone.
+**M5.7** (`719d54a`, `c3ea325`): `deliverNotification` via `after()`, `?talep=` banner, inbox status chips, withdrawal push (T-15).
 
 ## Current or interrupted task
-**M5.7 — In Progress (phone check pending).** Files: `src/lib/push.ts` (`deliverNotification`), `src/lib/push/target.ts`, `src/lib/domain/request-outcome.ts`, the cancel / reschedule (POST + DELETE) / reschedule-accept routes (`after()`), `isler/[id]/page.tsx` (banner), `bildirimler/page.tsx` + `inbox-list.tsx` (status chips), `render.ts`, `pwa/push-settings.tsx` (help text), `scripts/security-check.ts`, plan (T-15, §9), DATA_MODEL.
+M5.8 — just started.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
