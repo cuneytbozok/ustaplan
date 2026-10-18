@@ -37,6 +37,20 @@ export function renderNotification(category: string, payload: unknown): Rendered
       const count = typeof p.count === "number" && p.count > 1 ? p.count : 1;
       return { title: count > 1 ? `${who} ${count} fotoğraf ekledi` : `${who} fotoğraf ekledi`, body: job };
     }
+    case "appointment_reminder": {
+      const start = text(p.starts_at);
+      const time = start && !Number.isNaN(Date.parse(start)) ? formatTime(start) : "";
+      return { title: "1 saat sonra randevun var", body: join(time, text(p.customer_name), job) };
+    }
+    case "daily_digest": {
+      const count = (value: unknown) => (typeof value === "number" && value > 0 ? value : 0);
+      const parts = [
+        count(p.today) ? `Bugün ${count(p.today)} randevu` : "",
+        count(p.requests) ? `${count(p.requests)} tarih talebi` : "",
+        count(p.follow_ups) ? `${count(p.follow_ups)} iş takip bekliyor` : "",
+      ];
+      return { title: "Günün özeti", body: join(...parts) };
+    }
     default:
       return { title: "Yeni bildirim", body: job };
   }

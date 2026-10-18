@@ -13,8 +13,9 @@ import { createClient } from "@/lib/supabase/server";
 import { OPEN_JOB_STATUSES } from "@/lib/domain/labels";
 import { mapHref, whatsappHref } from "@/lib/domain/links";
 import { telHref } from "@/lib/domain/phone";
+import { followUps as findFollowUps } from "@/lib/domain/follow-ups";
 import { pickerDefaults } from "@/lib/domain/scheduling";
-import { formatDate, formatShortDate, formatTime, hasNotEnded, istanbulDayRange } from "@/lib/domain/time";
+import { formatDate, formatShortDate, formatTime, istanbulDayRange } from "@/lib/domain/time";
 
 export const metadata: Metadata = { title: "Bugün" };
 
@@ -78,15 +79,7 @@ async function Today() {
   const waiting = requests.filter((r) => r.status === "pending_artisan").length;
   const { today: todayKey, tomorrow } = pickerDefaults();
   // Follow-ups: open jobs without an upcoming visit, plus jobs with an overdue visit.
-  const followUps = openResult.data
-    .map((job) => {
-      const overdue = job.appointments.filter((a) => !hasNotEnded(a.ends_at)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-      const upcoming = job.appointments.some((a) => hasNotEnded(a.ends_at));
-      return { job, overdue: overdue[0], upcoming };
-    })
-    .filter((f) => f.overdue || !f.upcoming)
-    // Overdue visits first (oldest first), then jobs without a plan.
-    .sort((a, b) => (a.overdue && b.overdue ? a.overdue.starts_at.localeCompare(b.overdue.starts_at) : a.overdue ? -1 : b.overdue ? 1 : 0));
+  const followUps = findFollowUps(openResult.data);
 
   const summary = [
     waiting ? `${waiting} tarih talebi` : null,

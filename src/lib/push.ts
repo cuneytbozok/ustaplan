@@ -64,40 +64,58 @@ export async function sendPush(ownerId: string, message: PushMessage, endpoint?:
 
 const MAX_ATTEMPTS = 3;
 const RETRY_MINUTES = [5, 15];
+// A claim holds the row this long; a sender killed mid-way frees it for the dispatcher.
+const LEASE_MINUTES = 10;
+// A pending push older than this is stale (after() never ran, or the row
+// predates push): it is marked skipped, never sent late. Retries of rows that
+// did get a first attempt follow RETRY_MINUTES instead.
+const MAX_PENDING_AGE_MINUTES = 60;
+
+type Admin = ReturnType<typeof createAdminClient>;
+type OutboxRow = {
+  id: string;
+  owner_user_id: string;
+  job_id: string | null;
+  request_id: string | null;
+  category: string;
+  payload: unknown;
+  dedupe_key: string;
+  push_attempts: number;
+};
+const OUTBOX_COLUMNS = "id, owner_user_id, job_id, request_id, category, payload, dedupe_key, push_attempts";
+
+const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
 
 /**
- * Sends one inbox/outbox notification (plan §9). Claims it first with a
- * conditional update (pending|failed → sending), so a concurrent sender (the
- * M5.8 dispatcher) can't send it twice. Then: sent (≥ 1 device accepted it),
- * skipped (the artisan has no device), or failed with the next retry time
- * (none after 3 attempts). Copy comes from render.ts; tapping opens the job.
+ * Claim with a conditional update (plan §9): only one sender gets the row
+ * back. `claimable` is the PostgREST filter the row must still match.
  */
-export async function deliverNotification(ownerId: string, dedupeKey: string) {
-  const admin = createAdminClient();
-  const { data: row } = await admin
+async function claim(admin: Admin, row: OutboxRow, claimable: string) {
+  const { data } = await admin
     .from("notifications")
-    .select("id, job_id, request_id, category, payload, push_attempts")
-    .eq("owner_user_id", ownerId)
-    .eq("dedupe_key", dedupeKey)
-    .maybeSingle();
-  if (!row) return;
-
-  const attempts = row.push_attempts + 1;
-  const { data: claimed } = await admin
-    .from("notifications")
-    .update({ push_status: "sending", push_attempts: attempts })
+    .update({ push_status: "sending", push_attempts: row.push_attempts + 1, push_next_attempt_at: minutesFromNow(LEASE_MINUTES) })
     .eq("id", row.id)
-    .in("push_status", ["pending", "failed"])
+    .or(claimable)
     .select("id");
-  if (!claimed?.length) return; // already sent, being sent, or not a push
+  return Boolean(data?.length);
+}
 
-  let status: "sent" | "skipped" | "failed" = "failed";
-  try {
-    const { title, body } = renderNotification(row.category, row.payload);
-    const result = await sendPush(ownerId, { title, body, ...notificationTarget(row, dedupeKey) });
-    status = result.sent ? "sent" : result.failed ? "failed" : "skipped";
-  } catch {
-    status = "failed";
+/** Send a claimed row and record sent / skipped / failed (+ next retry, none after 3 attempts). */
+async function sendClaimed(admin: Admin, row: OutboxRow) {
+  const attempts = row.push_attempts + 1;
+  const payload = (row.payload ?? {}) as { starts_at?: unknown };
+  // A reminder for a visit that has started is pointless.
+  const expired = row.category === "appointment_reminder" && typeof payload.starts_at === "string" && Date.parse(payload.starts_at) <= Date.now();
+
+  let status: "sent" | "skipped" | "failed" = "skipped";
+  if (!expired) {
+    try {
+      const { title, body } = renderNotification(row.category, row.payload);
+      const result = await sendPush(row.owner_user_id, { title, body, ...notificationTarget(row, row.dedupe_key) });
+      status = result.sent ? "sent" : result.failed ? "failed" : "skipped";
+    } catch {
+      status = "failed";
+    }
   }
 
   const retryIn = RETRY_MINUTES[attempts - 1];
@@ -106,8 +124,54 @@ export async function deliverNotification(ownerId: string, dedupeKey: string) {
     .update({
       push_status: status,
       pushed_at: status === "sent" ? new Date().toISOString() : null,
-      push_next_attempt_at:
-        status === "failed" && attempts < MAX_ATTEMPTS && retryIn ? new Date(Date.now() + retryIn * 60_000).toISOString() : null,
+      push_next_attempt_at: status === "failed" && attempts < MAX_ATTEMPTS && retryIn ? minutesFromNow(retryIn) : null,
     })
     .eq("id", row.id);
+  return status;
+}
+
+/**
+ * Immediate push for one notification the request just created (plan §9,
+ * via after()). Repeats find it already claimed or sent. Copy comes from
+ * render.ts; the target from target.ts.
+ */
+export async function deliverNotification(ownerId: string, dedupeKey: string) {
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("notifications")
+    .select(OUTBOX_COLUMNS)
+    .eq("owner_user_id", ownerId)
+    .eq("dedupe_key", dedupeKey)
+    .maybeSingle();
+  if (!row) return;
+  if (await claim(admin, row, "push_status.in.(pending,failed)")) await sendClaimed(admin, row);
+}
+
+/**
+ * Dispatcher step (plan §9, M5.8): send everything due. Pending rows newer
+ * than 1 h, failed rows whose retry time has come, and rows stuck in
+ * "sending" past their lease. Older pending rows are marked skipped.
+ */
+export async function sendDue() {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const tooOld = new Date(Date.now() - MAX_PENDING_AGE_MINUTES * 60_000).toISOString();
+
+  const { data: stale } = await admin
+    .from("notifications")
+    .update({ push_status: "skipped", push_next_attempt_at: null })
+    .eq("push_status", "pending")
+    .lt("created_at", tooOld)
+    .select("id");
+
+  const due = `push_status.eq.pending,and(push_status.in.(failed,sending),push_next_attempt_at.lte.${now})`;
+  const { data: rows, error } = await admin.from("notifications").select(OUTBOX_COLUMNS).or(due).order("created_at").limit(200);
+  if (error) throw new Error("outbox lookup failed");
+
+  const counts = { sent: 0, skipped: 0, failed: 0, expired: stale?.length ?? 0 };
+  for (const row of rows) {
+    if (!(await claim(admin, row, due))) continue;
+    counts[await sendClaimed(admin, row)]++;
+  }
+  return counts;
 }

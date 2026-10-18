@@ -9,7 +9,14 @@
  * "yeni tarih istedi" notification instead of stacking under it.
  */
 export function notificationTarget(row: { job_id: string | null; request_id: string | null; category: string }, dedupeKey: string) {
-  const url = !row.job_id ? "/bildirimler" : row.request_id ? `/isler/${row.job_id}?talep=${row.request_id}` : `/isler/${row.job_id}`;
+  const url =
+    row.category === "daily_digest"
+      ? "/bugun"
+      : !row.job_id
+        ? "/bildirimler"
+        : row.request_id
+          ? `/isler/${row.job_id}?talep=${row.request_id}`
+          : `/isler/${row.job_id}`;
   const tag = row.category === "request_withdrawn" && row.request_id ? `request:${row.request_id}` : dedupeKey;
   return { url, tag };
 }
