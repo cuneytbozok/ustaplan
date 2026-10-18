@@ -1,6 +1,9 @@
 import "server-only";
+import { TZDate } from "@date-fns/tz";
+import { addMonths, startOfMonth } from "date-fns";
 import { isBanned, listAllUsers } from "@/lib/admin/accounts";
-import { OPEN_JOB_STATUSES, type JobStatus } from "@/lib/domain/labels";
+import { istanbulDayRange, istanbulWeekRange, TIME_ZONE } from "@/lib/domain/time";
+import { JOB_STATUS_LABELS as JOB_STATUS_ORDER, OPEN_JOB_STATUSES, type JobStatus } from "@/lib/domain/labels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/database";
 
@@ -15,12 +18,12 @@ type Table = keyof Database["public"]["Tables"];
 const PAGE = 1000;
 const DAY_MS = 24 * 3600 * 1000;
 
-/** PostgREST returns at most 1000 rows per request, so page through. */
-async function selectAll<T>(admin: Admin, table: Table, columns: string, filter?: (query: never) => unknown): Promise<T[]> {
+/** PostgREST returns at most 1000 rows per request, so page through (optionally only rows created since a time). */
+async function selectAll<T>(admin: Admin, table: Table, columns: string, createdSince?: Date): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE) {
     let query = admin.from(table).select(columns).order("id").range(from, from + PAGE - 1);
-    if (filter) query = filter(query as never) as typeof query;
+    if (createdSince) query = query.gte("created_at", createdSince.toISOString());
     const { data, error } = await query;
     if (error) throw new Error(`Could not read ${table}: ${error.message}`);
     rows.push(...(data as T[]));
@@ -32,13 +35,6 @@ async function count(admin: Admin, table: "profiles" | "customers" | "jobs") {
   const { count: value, error } = await admin.from(table).select("*", { count: "exact", head: true });
   if (error) throw new Error(`Could not count ${table}: ${error.message}`);
   return value ?? 0;
-}
-
-/** Totals across all artisans. */
-export async function getTotals() {
-  const admin = createAdminClient();
-  const [artisans, customers, jobs] = await Promise.all([count(admin, "profiles"), count(admin, "customers"), count(admin, "jobs")]);
-  return { artisans, customers, jobs };
 }
 
 export type ArtisanRow = {
@@ -114,4 +110,122 @@ export async function getArtisanRows(now = new Date()): Promise<ArtisanRow[]> {
       };
     })
     .sort((a, b) => Number(b.active) - Number(a.active) || a.displayName.localeCompare(b.displayName, "tr"));
+}
+
+type Range = { start: Date; end: Date };
+
+function istanbulMonthRange(now: Date): Range {
+  const start = startOfMonth(new TZDate(now, TIME_ZONE));
+  return { start: new Date(start.getTime()), end: new Date(addMonths(start, 1).getTime()) };
+}
+
+function countIn(timestamps: string[], range: Range) {
+  return timestamps.filter((value) => {
+    const at = Date.parse(value);
+    return at >= range.start.getTime() && at < range.end.getTime();
+  }).length;
+}
+
+export const TREND_WEEKS = 12;
+
+export type Overview = {
+  newJobs: Record<"today" | "yesterday" | "thisWeek" | "lastWeek" | "thisMonth" | "lastMonth", number>;
+  appointments: { today: number; thisWeek: number };
+  artisans: { total: number; active: number; deactivated: number; active7: number; active30: number };
+  totals: { customers: number; jobs: number };
+  jobsByStatus: Record<JobStatus, number>;
+  trend: { weekStart: string; jobs: number; customers: number }[];
+  push: { sent24h: number; failed24h: number; skipped24h: number; waiting: number; oldestWaitingAt: string | null; lastSentAt: string | null; delayed: boolean };
+  media: { files: number; bytes: number };
+};
+
+/** Everything the Genel bakış page shows, in one pass. */
+export async function getOverview(now = new Date()): Promise<Overview> {
+  const admin = createAdminClient();
+  const day = istanbulDayRange(now);
+  const yesterday = istanbulDayRange(new Date(day.start.getTime() - 1));
+  const week = istanbulWeekRange(now);
+  const lastWeek = istanbulWeekRange(new Date(week.start.getTime() - 1));
+  const month = istanbulMonthRange(now);
+  const lastMonth = istanbulMonthRange(new Date(month.start.getTime() - 1));
+  const weeks = Array.from({ length: TREND_WEEKS }, (_, index) => istanbulWeekRange(new Date(week.start.getTime() - index * 7 * DAY_MS))).reverse();
+  const since = new Date(Math.min(weeks[0].start.getTime(), lastMonth.start.getTime()));
+  const since24h = new Date(now.getTime() - DAY_MS);
+
+  const [artisans, recentJobs, recentCustomers, allJobs, customerCount, appointments, notifications, waiting, lastSent, media] = await Promise.all([
+    getArtisanRows(now),
+    selectAll<{ created_at: string }>(admin, "jobs", "id, created_at", since),
+    selectAll<{ created_at: string }>(admin, "customers", "id, created_at", since),
+    selectAll<{ status: JobStatus }>(admin, "jobs", "id, status"),
+    count(admin, "customers"),
+    admin
+      .from("appointments")
+      .select("starts_at")
+      .eq("status", "scheduled")
+      .gte("starts_at", week.start.toISOString())
+      .lt("starts_at", week.end.toISOString()),
+    selectAll<{ push_status: string }>(admin, "notifications", "id, push_status", since24h),
+    // Still to be sent: pending, being sent, or failed with a retry scheduled (final failures stay "failed").
+    admin
+      .from("notifications")
+      .select("created_at")
+      .or("push_status.in.(pending,sending),and(push_status.eq.failed,push_next_attempt_at.not.is.null)")
+      .order("created_at")
+      .limit(1000),
+    admin.from("notifications").select("pushed_at").not("pushed_at", "is", null).order("pushed_at", { ascending: false }).limit(1).maybeSingle(),
+    selectAll<{ size_bytes: number; deleted_at: string | null }>(admin, "job_media", "id, size_bytes, deleted_at"),
+  ]);
+  for (const result of [appointments, waiting, lastSent]) if (result.error) throw new Error(`Could not read overview: ${result.error.message}`);
+
+  const visits = (appointments.data ?? []).map((visit) => visit.starts_at);
+  const jobTimes = recentJobs.map((job) => job.created_at);
+  const customerTimes = recentCustomers.map((customer) => customer.created_at);
+  const liveMedia = media.filter((row) => !row.deleted_at);
+  const activeWithin = (days: number) =>
+    artisans.filter((artisan) => {
+      const last = latest(artisan.lastSignInAt, artisan.lastActivityAt);
+      return artisan.active && last !== null && Date.parse(last) >= now.getTime() - days * DAY_MS;
+    }).length;
+  const jobsByStatus = Object.fromEntries(Object.keys(JOB_STATUS_ORDER).map((status) => [status, 0])) as Record<JobStatus, number>;
+  for (const job of allJobs) jobsByStatus[job.status] += 1;
+
+  return {
+    newJobs: {
+      today: countIn(jobTimes, day),
+      yesterday: countIn(jobTimes, yesterday),
+      thisWeek: countIn(jobTimes, week),
+      lastWeek: countIn(jobTimes, lastWeek),
+      thisMonth: countIn(jobTimes, month),
+      lastMonth: countIn(jobTimes, lastMonth),
+    },
+    appointments: {
+      today: countIn(visits, day),
+      thisWeek: visits.length,
+    },
+    artisans: {
+      total: artisans.length,
+      active: artisans.filter((artisan) => artisan.active).length,
+      deactivated: artisans.filter((artisan) => !artisan.active).length,
+      active7: activeWithin(7),
+      active30: activeWithin(30),
+    },
+    totals: { customers: customerCount, jobs: allJobs.length },
+    jobsByStatus,
+    trend: weeks.map((range) => ({
+      weekStart: range.start.toISOString(),
+      jobs: countIn(jobTimes, range),
+      customers: countIn(customerTimes, range),
+    })),
+    push: {
+      sent24h: notifications.filter((row) => row.push_status === "sent").length,
+      failed24h: notifications.filter((row) => row.push_status === "failed").length,
+      skipped24h: notifications.filter((row) => row.push_status === "skipped").length,
+      waiting: waiting.data?.length ?? 0,
+      oldestWaitingAt: waiting.data?.[0]?.created_at ?? null,
+      lastSentAt: lastSent.data?.pushed_at ?? null,
+      // Pending pushes older than 1 h are never sent (M5.8), so anything older means the dispatcher isn't running.
+      delayed: Boolean(waiting.data?.[0] && Date.parse(waiting.data[0].created_at) < now.getTime() - 3600_000),
+    },
+    media: { files: liveMedia.length, bytes: liveMedia.reduce((sum, row) => sum + row.size_bytes, 0) },
+  };
 }
