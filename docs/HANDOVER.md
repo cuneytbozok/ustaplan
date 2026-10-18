@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.6** 🔑 (Web Push subscriptions, settings, test push) is implemented, VAPID keys are on Vercel (approved) and it is being deployed; it waits for the owner's phone check. M5.1–M5.5 are complete.
+**M5.6** (Web Push subscriptions, settings, test push) is complete: deployed (`2836a48`) and confirmed on the owner's iPhone with the app closed. Next: **M5.7** (immediate pushes), on the owner's instruction.
 
 ## Last completed task
-**M5.5** (`72a9c52`): service worker, offline page, install guide; confirmed on the owner's iPhone.
+**M5.6** (`b46cd95`, `2836a48`): `lib/push.ts`, `actions/push.ts`, Ayarlar → Bildirimler, logout removes the device, VAPID keys on Vercel Production.
 
 ## Current or interrupted task
-**M5.6 — In Progress (phone check pending).** Files: `src/lib/push.ts`, `src/actions/push.ts`, `src/components/pwa/push-settings.tsx`, `src/components/pwa/logout-form.tsx` (new); `actions/auth.ts` (signOut removes this device), `ayarlar/page.tsx`, `shell/profile-menu.tsx`, `pwa/install-guide.tsx` (`detectPlatform` exported), `lib/push/render.ts` (`TEST_PUSH`), `package.json` (`web-push`).
+None.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
@@ -40,10 +40,10 @@ _Rewritten at the end of every task. Last updated: 2026-10-18._
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. Everything up to the M5.6 tracker commit is pushed.
+None. The M5.6 close-out commit is local; push it with the next approved push.
 
 ## Exact next action
-Owner, on the installed iPhone app (and Android if available): Ayarlar → Bildirimler → Bildirimleri etkinleştir → allow; Test bildirimi gönder → it arrives; close the app completely and send again from another device's session if possible (or send, then quickly leave the app) → it arrives with the app closed; tap it → the app opens on Ayarlar; Bu cihazda kapat → test no longer possible; enable again; log out and back in → Bildirimler shows off. If it works, mark M5.6 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.7** (immediate pushes for cancel, reschedule request, counter accepted via `after()`; reuse `render.ts`; add the event sentence back to the Bildirimler help text).
+On "start the next task", do **M5.7**: immediate pushes for `customer_cancelled`, `reschedule_requested`, `counter_accepted` from the customer routes via `after()`: claim the notification the RPC inserted (`push_status in ('pending','failed')` → `sending`, conditional update), render with `render.ts`, send with `sendPush` (url `/isler/<job>`, tag = dedupe key), mark `sent`/`failed` (+ `push_attempts`, `push_next_attempt_at` for M5.8 retries) or `skipped` when the artisan has no device. Add the event sentence back to the Bildirimler help text. Check current `after()` docs first.
 
 ## Resume commands
 ```bash
