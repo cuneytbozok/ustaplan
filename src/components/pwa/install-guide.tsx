@@ -6,7 +6,7 @@ import { clearInstallPrompt, getInstallPrompt, onInstallPromptChange } from "./p
 
 type Platform = "standalone" | "ios" | "other";
 
-function detect(): Platform {
+export function detectPlatform(): Platform {
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   if (standalone) return "standalone";
@@ -32,7 +32,7 @@ export function InstallGuide() {
   useEffect(() => {
     // Browser-only facts: read after mount so server and client markup match.
     const update = () => {
-      setPlatform(detect());
+      setPlatform(detectPlatform());
       setCanPrompt(getInstallPrompt() !== null);
     };
     update();

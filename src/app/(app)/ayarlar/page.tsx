@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LogOut } from "lucide-react";
-import { signOut } from "@/actions/auth";
+import { LogoutForm } from "@/components/pwa/logout-form";
 import { BackLink } from "@/components/common/back-link";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { InstallGuide } from "@/components/pwa/install-guide";
+import { PushSettings } from "@/components/pwa/push-settings";
 import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { getCurrentArtisan } from "@/lib/auth";
@@ -13,7 +14,6 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Ayarlar" };
 
-// Bildirimler (push) settings join this page in M5.6.
 export default function SettingsPage() {
   return (
     <>
@@ -31,19 +31,18 @@ export default function SettingsPage() {
         <p className="mt-3 text-xs text-muted-foreground">Şifreni unutursan yöneticinle iletişime geç.</p>
       </Section>
 
+      <Section title="Bildirimler">
+        <PushSettings />
+      </Section>
+
       <Section title="Uygulamayı ana ekrana ekle">
         <InstallGuide />
       </Section>
 
-      <form action={signOut}>
-        <button
-          type="submit"
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-base font-medium text-danger hover:bg-danger/10"
-        >
+      <LogoutForm className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-base font-medium text-danger hover:bg-danger/10">
           <LogOut className="size-5" aria-hidden />
           Çıkış yap
-        </button>
-      </form>
+      </LogoutForm>
     </>
   );
 }

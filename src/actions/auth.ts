@@ -29,10 +29,15 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
   redirect("/bugun", RedirectType.replace);
 }
 
-export async function signOut() {
+export async function signOut(formData?: FormData) {
   const supabase = await createClient();
-  // Only this device; other devices stay signed in. Push subscriptions are
-  // removed here too once they exist (M5.6).
+  // This device stops receiving this artisan's pushes (DATA_MODEL §2): its
+  // subscription row goes before the session does (RLS: own rows only).
+  const endpoint = formData?.get("pushEndpoint");
+  if (typeof endpoint === "string" && endpoint.startsWith("https://")) {
+    await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+  }
+  // Only this device; other devices stay signed in.
   await supabase.auth.signOut({ scope: "local" });
   redirect("/giris", RedirectType.replace);
 }

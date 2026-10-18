@@ -41,3 +41,6 @@ export function renderNotification(category: string, payload: unknown): Rendered
       return { title: "Yeni bildirim", body: job };
   }
 }
+
+/** Ayarlar → "Test bildirimi gönder" (M5.6). */
+export const TEST_PUSH = { title: "UstaPlan test bildirimi", body: "Bildirimler bu cihazda çalışıyor.", url: "/ayarlar", tag: "test" } as const;

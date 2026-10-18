@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { LogOut, Settings, UserRound } from "lucide-react";
-import { signOut } from "@/actions/auth";
+import { LogoutForm } from "@/components/pwa/logout-form";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 /** Profile sheet from the header: Ayarlar and Çıkış (spec §2). */
@@ -30,15 +30,10 @@ export function ProfileMenu({ displayName, email }: { displayName: string; email
               Ayarlar
             </Link>
           </SheetClose>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="flex h-12 w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 text-base font-medium text-ink hover:bg-muted"
-            >
+          <LogoutForm className="flex h-12 w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 text-base font-medium text-ink hover:bg-muted">
               <LogOut className="size-5 text-muted-foreground" aria-hidden />
               Çıkış yap
-            </button>
-          </form>
+          </LogoutForm>
         </div>
       </SheetContent>
     </Sheet>
