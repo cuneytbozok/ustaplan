@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { verifyCustomerToken } from "@/lib/customer-link";
 import { actionResponse, invalidLink, isSameOrigin } from "@/lib/customer-api";
-import { istanbulDateKey } from "@/lib/domain/time";
+import { istanbulDateKey } from "@/lib/domain/scheduling";
 
 const BUCKET = "job-images";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -104,7 +104,7 @@ type Admin = NonNullable<Awaited<ReturnType<typeof verifyCustomerToken>>>["admin
  * The photo is already stored, so a failure here doesn't fail the upload.
  */
 async function notifyArtisan(admin: Admin, ownerId: string, jobId: string, title: string, customerName: string) {
-  const dedupeKey = `photos:${jobId}:${istanbulDateKey()}`;
+  const dedupeKey = `photos:${jobId}:${istanbulDateKey(new Date())}`;
   const payload = { job_title: title, customer_first_name: customerName.trim().split(/\s+/)[0] ?? "", count: 1 };
   const inserted = await admin.from("notifications").insert({
     owner_user_id: ownerId,

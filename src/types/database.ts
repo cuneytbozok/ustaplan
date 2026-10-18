@@ -603,12 +603,55 @@ export type Database = {
         Returns: Json
       }
       fold_tr: { Args: { input: string }; Returns: string }
+      public_accept_counter: {
+        Args: {
+          p_job_id: string
+          p_request_id: string
+          p_share_version: number
+        }
+        Returns: Json
+      }
       public_cancel_job: {
         Args: {
           p_job_id: string
           p_note?: string
           p_reason: string
           p_share_version: number
+        }
+        Returns: Json
+      }
+      public_request_reschedule: {
+        Args: {
+          p_job_id: string
+          p_note?: string
+          p_share_version: number
+          p_starts_at: string
+        }
+        Returns: Json
+      }
+      public_withdraw_request: {
+        Args: {
+          p_job_id: string
+          p_request_id: string
+          p_share_version: number
+        }
+        Returns: Json
+      }
+      reschedule_swap: {
+        Args: {
+          p_actor: string
+          p_ends_at: string
+          p_request_id: string
+          p_starts_at: string
+        }
+        Returns: string
+      }
+      respond_to_request: {
+        Args: {
+          p_action: string
+          p_counter_ends_at?: string
+          p_counter_starts_at?: string
+          p_request_id: string
         }
         Returns: Json
       }

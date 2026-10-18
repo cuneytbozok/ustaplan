@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { MessageCircle, Navigation, Pencil, Phone } from "lucide-react";
+import { RequestCard } from "@/components/appointments/request-card";
 import { AppointmentsSection } from "@/components/appointments/appointments-section";
 import { BackLink } from "@/components/common/back-link";
 import { PhotoGallery } from "@/components/media/photo-gallery";
@@ -53,7 +54,7 @@ async function JobDetail({
   if (!UUID.test(id)) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />;
 
   const supabase = await createClient();
-  const [jobResult, eventsResult] = await Promise.all([
+  const [jobResult, eventsResult, requestsResult] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -63,9 +64,16 @@ async function JobDetail({
       .order("starts_at", { referencedTable: "appointments" })
       .maybeSingle(),
     supabase.from("job_events").select("id, event_type, actor_type, payload, created_at").eq("job_id", id).order("created_at", { ascending: false }).limit(200),
+    supabase
+      .from("appointment_requests")
+      .select("id, status, appointment_id, requested_starts_at, requested_ends_at, counter_starts_at, counter_ends_at, request_note")
+      .eq("job_id", id)
+      .in("status", ["pending_artisan", "pending_customer"])
+      .order("created_at"),
   ]);
   if (jobResult.error) throw new Error(jobResult.error.message);
   if (eventsResult.error) throw new Error(eventsResult.error.message);
+  if (requestsResult.error) throw new Error(requestsResult.error.message);
   const job = jobResult.data;
   if (!job) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />; // includes other artisans' jobs (RLS hides them)
   const [photos, voiceNotes, profile] = await Promise.all([
@@ -98,6 +106,10 @@ async function JobDetail({
   // J4/J6: the cascade cancels scheduled visits that haven't ended (P-2).
   const upcoming = job.appointments.filter((a) => a.status === "scheduled" && hasNotEnded(a.ends_at));
   const { today, tomorrow, date, time } = pickerDefaults();
+  const openRequests = requestsResult.data.flatMap((r) => {
+    const appointment = job.appointments.find((a) => a.id === r.appointment_id);
+    return appointment ? [{ ...r, appointment }] : [];
+  });
   const priceEvents = eventsResult.data.filter((e) => e.event_type === "price_changed" || e.event_type === "price_visibility_changed");
 
   return (
@@ -188,6 +200,10 @@ async function JobDetail({
           </div>
         </section>
       ) : null}
+
+      {isOpen
+        ? openRequests.map((request) => <RequestCard key={request.id} request={request} today={today} tomorrow={tomorrow} />)
+        : null}
 
       <AppointmentsSection
         jobId={job.id}

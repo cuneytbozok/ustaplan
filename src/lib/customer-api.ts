@@ -25,3 +25,14 @@ export const actionResponse = (body: CustomerActionResult, status = body.ok ? 20
 export function isSameOrigin(request: Request) {
   return request.headers.get("origin") === appEnv().baseUrl;
 }
+
+/** Small JSON bodies only (≤ 4 KB); anything else reads as null and fails validation. */
+export async function readJsonBody(request: Request): Promise<unknown> {
+  const raw = await request.text();
+  if (raw.length > 4096) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}

@@ -6,7 +6,9 @@
  * page exposure, read-only GETs, media proxy restrictions. M5.1: customer
  * cancel (RPC privileges, Origin, link checks, cascade, idempotency). M5.2:
  * customer photo upload/delete (Origin, bytes, size, limits, ownership, job
- * state, events, daily notification). Extended in M5.9.
+ * state, events, daily notification). M5.3: reschedule (RPC privileges,
+ * Origin, link checks, request → counter → accept swap, withdraw, idempotency,
+ * cross-user respond). Extended in M5.9.
  *
  *   npm run security-check
  *
@@ -25,6 +27,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { adminEnv, appEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
 import { createShareToken, signJobLink } from "@/lib/share-link";
+import { istanbulDateKey } from "@/lib/domain/scheduling";
 
 type Client = SupabaseClient;
 type Result = { data: unknown; error: { code?: string; message: string } | null };
@@ -254,6 +257,23 @@ async function main() {
     expectPermissionDenied("anon cannot execute public_cancel_job", await anon.rpc("public_cancel_job", cancelArgs));
     expectPermissionDenied("A (owner) cannot execute public_cancel_job", await a.client.rpc("public_cancel_job", cancelArgs));
     expectPermissionDenied("B cannot execute public_cancel_job", await b.client.rpc("public_cancel_job", cancelArgs));
+    for (const [name, args] of [
+      ["public_request_reschedule", { p_job_id: ids.job, p_share_version: 1, p_starts_at: later(48) }],
+      ["public_withdraw_request", { p_job_id: ids.job, p_share_version: 1, p_request_id: ids.request }],
+      ["public_accept_counter", { p_job_id: ids.job, p_share_version: 1, p_request_id: ids.request }],
+    ] as const) {
+      expectPermissionDenied(`anon cannot execute ${name}`, await anon.rpc(name, args));
+      expectPermissionDenied(`A (owner) cannot execute ${name}`, await a.client.rpc(name, args));
+    }
+    const swapArgs = { p_request_id: ids.request, p_starts_at: later(48), p_ends_at: later(49), p_actor: "artisan" };
+    expectPermissionDenied("anon cannot execute reschedule_swap", await anon.rpc("reschedule_swap", swapArgs));
+    expectPermissionDenied("A cannot execute reschedule_swap", await a.client.rpc("reschedule_swap", swapArgs));
+    expectPermissionDenied("service_role cannot execute reschedule_swap", await admin.rpc("reschedule_swap", swapArgs));
+    expectPermissionDenied("anon cannot execute respond_to_request", await anon.rpc("respond_to_request", { p_request_id: ids.request, p_action: "reject" }));
+    const bRespond = await b.client.rpc("respond_to_request", { p_request_id: ids.request, p_action: "approve" });
+    record("B respond_to_request on A's request → not_found", rpcResult(bRespond) === "not_found", bRespond.error?.message ?? rpcResult(bRespond));
+    const fixtureRequest = await admin.from("appointment_requests").select("status").eq("id", ids.request).single();
+    record("A's request unchanged after B's call", (fixtureRequest.data as { status: string } | null)?.status === "pending_artisan", JSON.stringify(fixtureRequest.data));
     const aNew = await a.client.rpc("save_appointment", { p_job_id: ids.job, p_starts_at: later(3), p_ends_at: later(4) });
     record("control: A save_appointment on own job → ok", rpcResult(aNew) === "ok", aNew.error?.message ?? rpcResult(aNew));
 
@@ -452,6 +472,69 @@ async function main() {
       const tooMany = await upload(current, jpeg);
       record("upload with 20+ active customer photos → 429", tooMany.status === 429, `status ${tooMany.status}`);
 
+      // Reschedule (M5.3): request → counter → accept, withdraw.
+      const json = async (path: string, method: "POST" | "DELETE", body: unknown, from: string | null = origin) => {
+        const response = await fetch(`${base}${path}`, {
+          method,
+          redirect: "manual",
+          headers: { "Content-Type": "application/json", ...(from ? { Origin: from } : {}) },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, body: await response.text() };
+      };
+      const ask = { date: istanbulDateKey(new Date(), 3), time: "10:15", note: "sec-check" };
+      const openRequests = async () =>
+        ((await admin.from("appointment_requests").select("id, status, appointment_id, counter_starts_at").eq("job_id", ids.job).in("status", ["pending_artisan", "pending_customer"])).data ?? []) as
+          { id: string; status: string; appointment_id: string; counter_starts_at: string | null }[];
+      const scheduledVisits = async () =>
+        ((await admin.from("appointments").select("id, starts_at").eq("job_id", ids.job).eq("status", "scheduled").order("starts_at")).data ?? []) as { id: string; starts_at: string }[];
+      const before3 = await scheduledVisits();
+
+      record("reschedule from a foreign Origin → 403", (await json(`/api/t/${current}/reschedule`, "POST", ask, "https://evil.example")).status === 403, "accepted");
+      record("reschedule through the old link → 404", (await json(`/api/t/${valid}/reschedule`, "POST", ask)).status === 404, "accepted");
+      record("reschedule with a malformed date → 400", (await json(`/api/t/${current}/reschedule`, "POST", { date: "yarın", time: "10:15" })).status === 400, "accepted");
+      record("reschedule to a past time → 400", (await json(`/api/t/${current}/reschedule`, "POST", { date: istanbulDateKey(new Date(), -1), time: "10:15" })).status === 400, "accepted");
+      const asked = await json(`/api/t/${current}/reschedule`, "POST", ask);
+      record("customer reschedule request → 200", asked.status === 200, `status ${asked.status} ${asked.body.slice(0, 80)}`);
+      let open = await openRequests();
+      record("one open request (the fixture request was replaced)", open.length === 1 && open[0].status === "pending_artisan" && open[0].id !== ids.request, JSON.stringify(open));
+      record("current visit untouched by the request", JSON.stringify(await scheduledVisits()) === JSON.stringify(before3), "visits changed");
+      const requested = await admin.from("notifications").select("push_status").eq("job_id", ids.job).eq("category", "reschedule_requested");
+      record("reschedule_requested notification with pending push", requested.data?.length === 1 && requested.data[0].push_status === "pending", JSON.stringify(requested.data));
+      record("request_created event by link_holder", ((await admin.from("job_events").select("actor_type").eq("job_id", ids.job).eq("event_type", "request_created")).data ?? []).some((e) => e.actor_type === "link_holder"), "no event");
+      record("customer page shows the pending request", (await get(`/t/${current}`)).body.includes("isteğiniz ustanıza iletildi"), "not shown");
+      record("repeat request → 200, still one open", (await json(`/api/t/${current}/reschedule`, "POST", ask)).status === 200 && (await openRequests()).length === 1, "duplicated");
+
+      const pendingId = open[0].id;
+      const bCounter = await b.client.rpc("respond_to_request", { p_request_id: pendingId, p_action: "counter", p_counter_starts_at: later(72), p_counter_ends_at: later(73) });
+      record("B cannot counter A's customer request", rpcResult(bCounter) === "not_found", bCounter.error?.message ?? rpcResult(bCounter));
+      const aCounter = await a.client.rpc("respond_to_request", { p_request_id: pendingId, p_action: "counter", p_counter_starts_at: later(72), p_counter_ends_at: later(73) });
+      record("control: A counters → ok", rpcResult(aCounter) === "ok", aCounter.error?.message ?? rpcResult(aCounter));
+      record("customer page shows the counter-offer", (await get(`/t/${current}`)).body.includes("Ustanız yeni bir saat önerdi"), "not shown");
+      record("accept from a foreign Origin → 403", (await json(`/api/t/${current}/reschedule/accept`, "POST", { requestId: pendingId }, "https://evil.example")).status === 403, "accepted");
+      record("accept through the old link → 404", (await json(`/api/t/${valid}/reschedule/accept`, "POST", { requestId: pendingId })).status === 404, "accepted");
+      record("accept of an unknown request → 409", (await json(`/api/t/${current}/reschedule/accept`, "POST", { requestId: randomUUID() })).status === 409, "accepted");
+      record("old visit still scheduled before accept", (await scheduledVisits()).some((v) => v.id === open[0].appointment_id), "changed early");
+      const accepted = await json(`/api/t/${current}/reschedule/accept`, "POST", { requestId: pendingId });
+      record("customer accepts the counter → 200", accepted.status === 200, `status ${accepted.status} ${accepted.body.slice(0, 80)}`);
+      const swapped = await admin.from("appointments").select("status, replaced_by_id").eq("id", open[0].appointment_id).single();
+      const replacement = (swapped.data as { replaced_by_id: string | null } | null)?.replaced_by_id;
+      const newVisit = replacement ? await admin.from("appointments").select("status, starts_at").eq("id", replacement).single() : null;
+      record("swap: old visit superseded, new one scheduled at the counter time",
+        (swapped.data as { status: string } | null)?.status === "superseded" && (newVisit?.data as { status: string; starts_at: string } | null)?.status === "scheduled" &&
+          Date.parse((newVisit?.data as { starts_at: string }).starts_at) === Date.parse(later(72)), JSON.stringify({ swapped: swapped.data, newVisit: newVisit?.data }));
+      const countAccepted = async () => (await admin.from("notifications").select("id", { count: "exact", head: true }).eq("job_id", ids.job).eq("category", "counter_accepted")).count;
+      record("counter_accepted notification once", (await countAccepted()) === 1, `${await countAccepted()}`);
+      record("repeat accept → 200, nothing duplicated", (await json(`/api/t/${current}/reschedule/accept`, "POST", { requestId: pendingId })).status === 200 && (await countAccepted()) === 1, "duplicated");
+
+      record("second request → 200", (await json(`/api/t/${current}/reschedule`, "POST", { ...ask, time: "11:30" })).status === 200, "refused");
+      open = await openRequests();
+      record("withdraw from a foreign Origin → 403", (await json(`/api/t/${current}/reschedule`, "DELETE", { requestId: open[0]?.id }, "https://evil.example")).status === 403, "accepted");
+      record("customer withdraws → 200", (await json(`/api/t/${current}/reschedule`, "DELETE", { requestId: open[0]?.id })).status === 200 && (await openRequests()).length === 0, "still open");
+      record("repeat withdraw → 200", (await json(`/api/t/${current}/reschedule`, "DELETE", { requestId: open[0]?.id })).status === 200, "refused");
+      // Left open on purpose: the customer cancel below must close it (J6).
+      await json(`/api/t/${current}/reschedule`, "POST", { ...ask, time: "12:45" });
+
       // Customer cancel (M5.1): POST only from our origin, through a valid link.
       const post = async (token: string, body: unknown, origin: string | null = appEnv().baseUrl) => {
         const response = await fetch(`${base}/api/t/${token}/cancel`, {
@@ -490,6 +573,8 @@ async function main() {
       const bSees = await b.client.from("notifications").select("id").eq("job_id", ids.job);
       expectNoRows("B cannot see A's cancel notification", bSees);
       const page2 = await get(`/t/${current}`);
+      record("cancel closed the open reschedule request", (await openRequests()).length === 0, "request still open");
+      record("reschedule on a cancelled job → 409", (await json(`/api/t/${current}/reschedule`, "POST", ask)).status === 409, "accepted");
       record("cancelled job page offers no cancel button", page2.status === 200 && !page2.body.includes("İşi iptal et"), "button still shown");
       record("upload on a cancelled job → 409", (await upload(current, jpeg)).status === 409, "accepted");
       const live = (await customerRows()).find((r) => !r.deleted_at);
@@ -501,7 +586,9 @@ async function main() {
     await admin.storage.from("job-images").remove((customerObjects.data ?? []).map((o) => `${a.id}/${ids.job}/${o.name}`));
     await admin.storage.from("job-images").remove([objectPath, sharedPath, `${a.id}/${ids.job}/ctl.jpg`, `${a.id}/${ids.job}/b.jpg`, `${b.id}/${ids.job}/b.jpg`, `${a.id}/${ids.job}/anon.jpg`]);
     await admin.from("push_subscriptions").delete().like("endpoint", `https://push.invalid/${tag}%`);
-    await admin.from("jobs").delete().in("id", [ids.job, ids.bJob]);
+    // A's job has accepted reschedules by now; it must still cascade-delete (account deletion).
+    const deletedJobs = await admin.from("jobs").delete().in("id", [ids.job, ids.bJob]).select("id");
+    record("jobs with accepted reschedules can be deleted (cascade)", deletedJobs.data?.length === 2, deletedJobs.error?.message ?? `${deletedJobs.data?.length} deleted`);
     await admin.from("customers").delete().in("id", [ids.customer, ids.bCustomer]);
     const leftovers = await admin.from("customers").select("id").like("name", `${tag}%`);
     const leftoverObjects = await admin.storage.from("job-images").list(`${a.id}/${ids.job}`);

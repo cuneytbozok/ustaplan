@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { verifyCustomerToken } from "@/lib/customer-link";
-import { actionResponse, invalidLink, isSameOrigin } from "@/lib/customer-api";
+import { actionResponse, invalidLink, isSameOrigin, readJsonBody } from "@/lib/customer-api";
 import { CANCEL_REASON_LABELS, type CancelReason } from "@/lib/domain/labels";
-
-const MAX_BODY = 4096;
 
 const schema = z
   .object({
@@ -27,12 +25,7 @@ export async function POST(request: Request, { params }: RouteContext<"/api/t/[t
   const verified = await verifyCustomerToken(token);
   if (!verified) return invalidLink();
 
-  const raw = await request.text();
-  let body: unknown = null;
-  try {
-    body = raw.length <= MAX_BODY ? JSON.parse(raw) : null;
-  } catch {}
-  const parsed = schema.safeParse(body);
+  const parsed = schema.safeParse(await readJsonBody(request));
   if (!parsed.success) {
     const noteMissing = parsed.error.issues.some((issue) => issue.path[0] === "note");
     return actionResponse({ ok: false, error: noteMissing ? "Lütfen kısa bir açıklama yazın." : "Lütfen bir iptal sebebi seçin." });

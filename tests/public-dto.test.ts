@@ -21,9 +21,10 @@ const source = (overrides: Partial<CustomerJobSource["job"]> = {}): CustomerJobS
     },
     customer: { name: "Müşteri Adı", phone: "+905329998877", address_text: "Gizli Sokak No: 1" },
     upcoming: [
-      { starts_at: "2026-10-21T10:00:00Z", ends_at: "2026-10-21T11:00:00Z" },
-      { starts_at: "2026-10-20T07:00:00Z", ends_at: "2026-10-20T08:00:00Z", private_note: "RANDEVU NOTU" },
+      { id: "appt-later", starts_at: "2026-10-21T10:00:00Z", ends_at: "2026-10-21T11:00:00Z" },
+      { id: "appt-next", starts_at: "2026-10-20T07:00:00Z", ends_at: "2026-10-20T08:00:00Z", private_note: "RANDEVU NOTU" },
     ],
+    requests: [],
     media: [
       { id: "shared-photo", kind: "image", origin: "artisan", visibility: "shared", storage_path: "owner/job/a.jpg" },
       { id: "private-photo", kind: "image", origin: "artisan", visibility: "private", storage_path: "owner/job/b.jpg" },
@@ -39,7 +40,7 @@ describe("CustomerJobView allowlist", () => {
   const json = JSON.stringify(view);
 
   it("has exactly the allowlisted keys", () => {
-    expect(keys(view)).toEqual(["agreedPrice", "artisan", "capabilities", "job", "nextAppointment", "photos"]);
+    expect(keys(view)).toEqual(["agreedPrice", "artisan", "capabilities", "job", "nextAppointment", "photos", "request"]);
     expect(keys(view.artisan)).toEqual(["name", "phone"]);
     expect(keys(view.job)).toEqual(["status", "title"]);
     expect(keys(view.nextAppointment!)).toEqual(["endsAt", "startsAt"]);
@@ -78,5 +79,37 @@ describe("CustomerJobView allowlist", () => {
     expect(caps("in_progress", false)).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: true });
     expect(caps("completed")).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: false });
     expect(caps("cancelled")).toEqual({ uploadPhotos: false, requestReschedule: false, cancel: false });
+  });
+
+  it("shows the latest request about the next appointment, with its note left out", () => {
+    const request = (r: Partial<CustomerJobSource["requests"][number]> & { request_note?: string }) => ({
+      id: "req",
+      appointment_id: "appt-next",
+      status: "pending_artisan",
+      requested_starts_at: "2026-10-22T09:00:00Z",
+      counter_starts_at: null,
+      counter_ends_at: null,
+      created_at: "2026-10-18T10:00:00Z",
+      ...r,
+    });
+    const viewWith = (requests: ReturnType<typeof request>[]) => toCustomerJobView({ ...source(), requests }).request;
+
+    expect(viewWith([])).toBeNull();
+    const pending = viewWith([request({ request_note: "NOT GİZLİ" })]);
+    expect(keys(pending!)).toEqual(["counterEndsAt", "counterStartsAt", "id", "requestedStartsAt", "status"]);
+    expect(JSON.stringify(pending)).not.toContain("NOT GİZLİ");
+    // The newest one wins; requests about another visit are ignored.
+    expect(
+      viewWith([
+        request({ id: "old", status: "withdrawn", created_at: "2026-10-18T09:00:00Z" }),
+        request({ id: "new", status: "pending_customer", counter_starts_at: "2026-10-23T09:00:00Z", counter_ends_at: "2026-10-23T10:00:00Z" }),
+        request({ id: "other", appointment_id: "appt-later", created_at: "2026-10-18T11:00:00Z" }),
+      ]),
+    ).toEqual({ id: "new", status: "pending_customer", requestedStartsAt: "2026-10-22T09:00:00Z", counterStartsAt: "2026-10-23T09:00:00Z", counterEndsAt: "2026-10-23T10:00:00Z" });
+    expect(viewWith([request({ status: "rejected", counter_starts_at: "x" })])?.counterStartsAt).toBeNull();
+    // Closed, withdrawn and accepted requests aren't shown.
+    for (const status of ["closed", "withdrawn", "accepted"]) expect(viewWith([request({ status })])).toBeNull();
+    // No next appointment → no request.
+    expect(toCustomerJobView({ ...source(), upcoming: [], requests: [request({})] }).request).toBeNull();
   });
 });

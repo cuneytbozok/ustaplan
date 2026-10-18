@@ -9,9 +9,19 @@ export type CustomerJobView = {
   artisan: { name: string; phone: string | null };
   job: { title: string; status: JobStatus };
   nextAppointment: { startsAt: string; endsAt: string } | null;
+  /** The latest negotiation about the next appointment: open, or the artisan's "no". */
+  request: CustomerRequest | null;
   agreedPrice: number | null;
   photos: { id: string; url: string; fromCustomer: boolean; canDelete: boolean }[];
   capabilities: { uploadPhotos: boolean; requestReschedule: boolean; cancel: boolean };
+};
+
+export type CustomerRequest = {
+  id: string;
+  status: "pending_artisan" | "pending_customer" | "rejected";
+  requestedStartsAt: string;
+  counterStartsAt: string | null;
+  counterEndsAt: string | null;
 };
 
 /** Raw inputs the loader fetched; extra fields are ignored on purpose. */
@@ -20,7 +30,17 @@ export type CustomerJobSource = {
   profile: { display_name: string; business_name: string | null; contact_phone: string | null };
   job: { title: string; status: string; agreed_price: number | null; show_price_to_customer: boolean };
   /** Scheduled visits that haven't ended, any order. */
-  upcoming: { starts_at: string; ends_at: string }[];
+  upcoming: { id: string; starts_at: string; ends_at: string }[];
+  /** Recent requests of the job, any order. */
+  requests: {
+    id: string;
+    appointment_id: string;
+    status: string;
+    requested_starts_at: string;
+    counter_starts_at: string | null;
+    counter_ends_at: string | null;
+    created_at: string;
+  }[];
   /** Live (not deleted) image rows of the job. */
   media: { id: string; kind: string; origin: string; visibility: string }[];
 };
@@ -31,6 +51,19 @@ export function toCustomerJobView(source: CustomerJobSource): CustomerJobView {
   const status = source.job.status as JobStatus;
   const next = [...source.upcoming].sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
   const nextAppointment = next ? { startsAt: next.starts_at, endsAt: next.ends_at } : null;
+  const latest = next
+    ? [...source.requests].filter((r) => r.appointment_id === next.id).sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    : undefined;
+  const request: CustomerRequest | null =
+    latest && ["pending_artisan", "pending_customer", "rejected"].includes(latest.status)
+      ? {
+          id: latest.id,
+          status: latest.status as CustomerRequest["status"],
+          requestedStartsAt: latest.requested_starts_at,
+          counterStartsAt: latest.status === "pending_customer" ? latest.counter_starts_at : null,
+          counterEndsAt: latest.status === "pending_customer" ? latest.counter_ends_at : null,
+        }
+      : null;
   // Customers see artisan photos marked "shared" and their own uploads; never audio.
   const photos = source.media
     .filter((m) => m.kind === "image" && (m.origin === "customer" || m.visibility === "shared"))
@@ -48,9 +81,10 @@ export function toCustomerJobView(source: CustomerJobSource): CustomerJobView {
     },
     job: { title: source.job.title, status },
     nextAppointment,
+    request,
     agreedPrice: source.job.show_price_to_customer ? source.job.agreed_price : null,
     photos,
-    // Capability table (plan §5); the actions themselves arrive in M5.
+    // Capability table (plan §5).
     capabilities: {
       uploadPhotos: status !== "cancelled",
       requestReschedule: status !== "unplanned" && isOpen(status) && nextAppointment !== null,

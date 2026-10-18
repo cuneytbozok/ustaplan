@@ -5,10 +5,12 @@ import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { CancelSheet } from "@/components/public/cancel-sheet";
 import { CustomerPhotos } from "@/components/public/customer-photos";
+import { RescheduleSection } from "@/components/public/reschedule-section";
 import { loadCustomerJob } from "@/lib/customer-link";
 import { whatsappHref } from "@/lib/domain/links";
 import { formatTRY } from "@/lib/domain/money";
 import { telHref } from "@/lib/domain/phone";
+import { istanbulToday } from "@/lib/domain/scheduling";
 import { formatDate, formatTime } from "@/lib/domain/time";
 
 // Generic title, no description or OG data: WhatsApp previews show nothing about the job.
@@ -30,7 +32,7 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
   const { token } = await params;
   const view = await loadCustomerJob(token);
   if (!view) notFound();
-  const { artisan, job, nextAppointment, agreedPrice, photos, capabilities } = view;
+  const { artisan, job, nextAppointment, request, agreedPrice, photos, capabilities } = view;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -56,6 +58,15 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
         ) : (
           <p className="mt-1 text-base text-ink">Henüz planlı bir randevu yok.</p>
         )}
+        {nextAppointment ? (
+          <RescheduleSection
+            token={token}
+            appointment={nextAppointment}
+            request={request}
+            canRequest={capabilities.requestReschedule}
+            today={istanbulToday()}
+          />
+        ) : null}
       </section>
 
       {agreedPrice !== null ? (

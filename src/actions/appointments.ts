@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { actionContext, SESSION_EXPIRED } from "@/lib/auth-action";
 import { findConflicts, istanbulDateKey, istanbulDateTime, readAppointmentFields, suggestSlot } from "@/lib/domain/scheduling";
+import { hasNotEnded } from "@/lib/domain/time";
 
 const uuid = z.uuid();
 
@@ -92,6 +93,42 @@ export async function closeAppointment(appointmentId: string, outcome: "complete
   if (result === "not_found") return { ok: false, error: "Randevu bulunamadı." };
   if (result === "invalid_transition") return { ok: false, error: "Bu randevu zaten kapanmış. Sayfayı yenile." };
   if (result !== "ok") return { ok: false, error: "Bilgileri kontrol et." };
+  refresh();
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Answer a customer's date request (respond_to_request, plan §8): approve swaps
+ * to the requested time, reject keeps the visit, counter offers the picker's
+ * time (formData) and waits for the customer.
+ */
+export async function respondToRequest(requestId: string, action: "approve" | "reject" | "counter", formData?: FormData): Promise<ActionResult> {
+  if (!uuid.safeParse(requestId).success || !["approve", "reject", "counter"].includes(action)) {
+    return { ok: false, error: "Talep bulunamadı." };
+  }
+  let counter: { start: Date; end: Date } | null = null;
+  if (action === "counter") {
+    const fields = formData ? readAppointmentFields(formData) : { error: "Randevu için tarih ve saati seç." };
+    if ("error" in fields) return { ok: false, error: fields.error };
+    if (!hasNotEnded(fields.start)) return { ok: false, error: "İleri bir tarih ve saat seç." };
+    counter = fields;
+  }
+
+  const { supabase, userId } = await actionContext();
+  if (!userId) return { ok: false, error: SESSION_EXPIRED };
+
+  const { data, error } = await supabase.rpc("respond_to_request", {
+    p_request_id: requestId,
+    p_action: action,
+    p_counter_starts_at: counter?.start.toISOString(),
+    p_counter_ends_at: counter?.end.toISOString(),
+  });
+  if (error) return { ok: false, error: "Kaydedilemedi. Tekrar dene." };
+  const result = (data as { result: string }).result;
+  if (result === "not_found") return { ok: false, error: "Talep bulunamadı." };
+  if (result === "invalid_transition") return { ok: false, error: "Bu talep değişmiş ya da kapanmış. Sayfayı yenile." };
+  if (result === "expired") return { ok: false, error: "İstenen saat geçti. Başka bir tarih öner." };
+  if (result !== "ok") return { ok: false, error: "Tarih ve saati kontrol et." };
   refresh();
   return { ok: true, data: undefined };
 }

@@ -3,15 +3,17 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.2** (customer photo upload/delete) is complete: deployed (`00c6ceb`) and confirmed on the owner's phone. Next: **M5.3** 🔑 (migration `reschedule`), on the owner's instruction.
+**M5.3** (reschedule negotiation) is implemented, on dev and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1 and M5.2 are complete.
 
 ## Last completed task
-**M5.2** (`00c6ceb`): `POST/DELETE /api/t/[token]/photos`, `CustomerPhotos` on the customer page, daily `customer_photo_added` inbox item, security-check 194/194. No migration.
+**M5.2** (`00c6ceb`, closed in `7e2bc67`): customer photo upload/delete, confirmed on the owner's phone.
 
 ## Current or interrupted task
-None.
+**M5.3 — In Progress (phone check pending).** Migrations `20261018065117_reschedule.sql` and `20261018070600_appointment_fk_deferred.sql` are on dev (both approved). Files: `src/app/api/t/[token]/reschedule/route.ts` (POST request, DELETE withdraw), `…/reschedule/accept/route.ts`, `src/components/public/reschedule-section.tsx`, `src/components/appointments/request-card.tsx` (new); `actions/appointments.ts` (`respondToRequest`), `bugun/page.tsx`, `isler/[id]/page.tsx`, `t/[token]/page.tsx`, `lib/public-job.ts` (+ `request`), `lib/customer-link.ts`, `lib/customer-api.ts` (`readJsonBody`), cancel + photos routes, `time.ts` (duplicate helper removed), `job-timeline.tsx`, `security-check.ts`, `tests/public-dto.test.ts`, `database.ts`, DATA_MODEL, plan.
 
 ## Key decisions (still relevant)
+- **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
+- **Browser tests:** stale hidden copies of earlier pages can hold buttons with the same label; target the visible page (`find`/refs) and verify writes in the DB.
 - **Customer photos (M5.2):** route handlers with the admin client, no RPC (DATA_MODEL §4). Limits are counted from `job_media` and can overshoot by one or two under concurrency. The daily `customer_photo_added` item is insert-then-update on conflict (a lost increment under a race is accepted). Only JPEG is accepted; the browser always re-encodes to JPEG.
 - **Customer cancel (M5.1):** already cancelled → `ok` with no change; completed → refused. The note stays on the job row only (not in events or notifications). A re-cancel after reopen re-arms the same `cancel:<job>` notification. No separate rate limit: cancel is self-limiting. Origin must equal `APP_BASE_URL` exactly, so a local server on another port needs a matching `APP_BASE_URL` (see `prod-check`).
 - **Customer links:** token = `<jobId>.<base64url HMAC>` (`lib/share-link.ts`, pure). `proxy.ts` verifies `/t/:token` and rewrites every invalid link to static `/t/gecersiz` (`notFound()` at prerender → real 404, identical body); the page and the media proxy verify again. Only `CustomerJobView` (`lib/public-job.ts`) reaches the customer. The customer endpoints use the admin client, so production needs `SUPABASE_SECRET_KEY`.
@@ -21,8 +23,8 @@ None.
 - **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
 - **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Tests executed (M5.2)
-security-check 194/194 against a production build on :3200; typecheck, lint, Vitest 30/30, build; local 375 px upload → artisan view → delete smoke.
+## Tests executed (M5.3)
+PGlite 73/73 (reschedule) + 75/75 with the FK fix (job and account delete); security-check 235/235 on a production build (:3200); Vitest 31/31; typecheck, lint, build; local 375 px request → counter → accept, approve, reject smoke.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
@@ -34,10 +36,10 @@ security-check 194/194 against a production build on :3200; typecheck, lint, Vit
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. The M5.2 close-out commit is local; push it with the next approved push.
+None after the M5.3 commit. Local commits not yet pushed: `7e2bc67` and the M5.3 commit.
 
 ## Exact next action
-On "start the next task", do **M5.3** 🔑: migration `reschedule` with `public_request_reschedule`, `public_withdraw_request`, `public_accept_counter` (service_role only, lock + share-version re-check, one open negotiation per appointment, ≤ 10 requests per day per job, notifications `reschedule_requested` / `counter_accepted` / `request_withdrawn`) and the artisan's `respond_to_request` (approve/reject/counter with the atomic swap, plan §8); customer UI on `/t/[token]` and the artisan UI (job page + Bugün pending requests). Test in PGlite, then **ask before `supabase db push`**; regenerate types; extend and re-run security-check.
+Ask the owner to approve the push (deploys to Vercel). Then the owner, with two phones: on a job with a planned visit, open the link and ask for a new time; on the artisan phone see it on Bugün, try Başka tarih öner; accept it on the customer phone and check the visit moved; then try Onayla and Reddet on new requests. If it works, mark M5.3 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.4** (inbox: bell, badge, `/bildirimler`).
 
 ## Resume commands
 ```bash

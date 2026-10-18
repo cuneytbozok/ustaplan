@@ -121,7 +121,8 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 | `jobs` | M2.1 | `create_job`, `change_job_status`, `jobs_log_changes` trigger |
 | `appointments` | M3.1 | `save_appointment`, `close_appointment` |
 | `customer_cancel` | M5.1 | `public_cancel_job` |
-| `reschedule` | M5.3 | `public_request_reschedule`, `public_withdraw_request`, `public_accept_counter`, `respond_to_request` |
+| `reschedule` | M5.3 | `public_request_reschedule`, `public_withdraw_request`, `public_accept_counter`, `respond_to_request` (+ internal `reschedule_swap`) |
+| `appointment_fk_deferred` | M5.3 (fix) | The two appointment self-reference FKs checked at commit, so job/account deletes cascade after a swap |
 | `cron` | M5.8 | `pg_cron`/`pg_net` schedule using Vault secret names |
 
 ---

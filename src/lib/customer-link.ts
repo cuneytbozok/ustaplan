@@ -36,10 +36,10 @@ export async function loadCustomerJob(token: string): Promise<CustomerJobView | 
   if (!verified) return null;
   const { admin, jobId, ownerId } = verified;
 
-  const [job, profile, appointments, media] = await Promise.all([
+  const [job, profile, appointments, media, requests] = await Promise.all([
     admin.from("jobs").select("title, status, agreed_price, show_price_to_customer").eq("id", jobId).single(),
     admin.from("profiles").select("display_name, business_name, contact_phone").eq("id", ownerId).single(),
-    admin.from("appointments").select("starts_at, ends_at").eq("job_id", jobId).eq("status", "scheduled"),
+    admin.from("appointments").select("id, starts_at, ends_at").eq("job_id", jobId).eq("status", "scheduled"),
     admin
       .from("job_media")
       .select("id, kind, origin, visibility")
@@ -48,8 +48,14 @@ export async function loadCustomerJob(token: string): Promise<CustomerJobView | 
       .is("deleted_at", null)
       .order("created_at", { ascending: true })
       .limit(100),
+    admin
+      .from("appointment_requests")
+      .select("id, appointment_id, status, requested_starts_at, counter_starts_at, counter_ends_at, created_at")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
-  if (job.error || profile.error || appointments.error || media.error) throw new Error("customer view load failed");
+  if (job.error || profile.error || appointments.error || media.error || requests.error) throw new Error("customer view load failed");
 
   return toCustomerJobView({
     token,
@@ -57,5 +63,6 @@ export async function loadCustomerJob(token: string): Promise<CustomerJobView | 
     job: job.data,
     upcoming: appointments.data.filter((a) => hasNotEnded(a.ends_at)),
     media: media.data,
+    requests: requests.data,
   });
 }

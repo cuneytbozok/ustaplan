@@ -92,7 +92,7 @@ The starter's `description` column is **dropped** (P-1). The artisan has one sha
 | id, owner_user_id, job_id | uuid | FK `(owner_user_id, job_id)` → jobs on delete cascade; `unique (owner_user_id, job_id, id)` |
 | starts_at, ends_at | timestamptz | `ends_at - starts_at between 15 min and 480 min` |
 | status | text | `scheduled · completed · cancelled · superseded` |
-| replaced_by_id | uuid null | self FK; set only when `superseded` |
+| replaced_by_id | uuid null | self FK (deferrable, checked at commit); set only when `superseded` |
 | closed_at | timestamptz null | set when leaving `scheduled` |
 | private_note | text | null, ≤1000 |
 
@@ -107,7 +107,7 @@ Index: `(owner_user_id, starts_at, ends_at) where status = 'scheduled'`. **All w
 | request_note | text | null, ≤500 |
 | status | text | `pending_artisan · pending_customer · accepted · rejected · withdrawn · closed` |
 | resolved_at | timestamptz null | set on any terminal status |
-| resulting_appointment_id | uuid null | set when `accepted` |
+| resulting_appointment_id | uuid null | set when `accepted`; FK deferrable, checked at commit (so a job/account delete can cascade, migration `appointment_fk_deferred`) |
 
 Partial unique index: one open negotiation per appointment (`status in ('pending_artisan','pending_customer')`). **Artisans can only select; all writes go through RPCs.**
 
@@ -214,7 +214,7 @@ Each one locks the job row (`select … for update`), validates the transition, 
 | `change_job_status(job_id, action, note?)` | `action ∈ start · wait_material · complete · cancel · reopen`. Applies plan §7 rules J1–J6, including cascades to appointments and requests. Complete and cancel both cancel scheduled appointments with `ends_at > now()`; ended visits stay for Takip gerekenler. Results: `ok · not_found · invalid_transition · invalid_input`. |
 | `save_appointment(job_id, appointment_id?, starts_at, ends_at)` | New appointment, or reschedule (old one `superseded` + `replaced_by_id`, open request `closed`). Applies J2. Duration 15–480 min; closed jobs refused; past times allowed. A repeat with the same job and times returns the existing appointment (for a reschedule, the old one's replacement). Results: `ok · not_found · invalid_transition · invalid_input` (+ `appointment_id`, job `status`). |
 | `close_appointment(appointment_id, outcome)` | `outcome ∈ completed · cancelled`; closes the open request; applies J3 (only when no scheduled visit is left and the job is `scheduled`). Repeating the same outcome is ok. Results: `ok · not_found · invalid_transition · invalid_input` (+ job `status`). |
-| `respond_to_request(request_id, action, counter_starts_at?, counter_ends_at?)` | `approve · reject · counter`; approve does the atomic swap. |
+| `respond_to_request(request_id, action, counter_starts_at?, counter_ends_at?)` | `approve · reject · counter`. Approve does the atomic swap to the requested time (`pending_artisan` only; a passed time → `expired`); reject → `rejected`; counter (future start, 15–480 min) → `pending_customer`, also allowed again while `pending_customer`. Repeats are ok. Results: `ok · not_found · invalid_transition · invalid_input · expired`. |
 
 Conflict lookup is **not** a function. It's an ordinary RLS-scoped select (`status='scheduled' and starts_at < :end and ends_at > :start`).
 
@@ -224,6 +224,8 @@ Signature: `(job_id uuid, share_version int, …)`. Each one locks the job and r
 `public_cancel_job(reason, note)` · `public_request_reschedule(starts_at, note)` (replaces a pending counter in the same transaction) · `public_withdraw_request(request_id)` · `public_accept_counter(request_id)`
 
 They insert the related notification (`push_status='pending'`) in the same transaction.
+
+Reschedule (M5.3): the customer's request always targets the job's **next** appointment (earliest `scheduled` one that hasn't ended), keeps its duration, must start in the future (≤ 365 days) and differ from the current start; ≤ 10 requests per job per 24 h (`rate_limited`), counted under the job lock. An open negotiation on that appointment is withdrawn and replaced in the same transaction; the same pending request again is a no-op. `public_accept_counter` swaps atomically (`expired` if the counter time has passed). The swap itself is the internal `reschedule_swap` (no API role can execute it). Results add `rate_limited` and `expired`. Notifications: `reschedule_requested` and `counter_accepted` (push `pending`), `request_withdrawn` (inbox only).
 
 `public_cancel_job` (M5.1): reason is required (one of the `cancelled_reason` codes); the note is ≤ 500 characters and required for `other`. Results: `ok · link_invalid · invalid_transition · invalid_input`. An already cancelled job returns `ok` without changes; a completed job is `invalid_transition`. The `job_cancelled` event (`actor_type='link_holder'`) and the notification payload carry the reason code, never the note. If the artisan reopens and the customer cancels again, the existing `cancel:<job_id>` notification is re-armed (unread, new payload, push `pending` again).
 
