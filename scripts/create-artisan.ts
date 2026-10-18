@@ -8,7 +8,8 @@
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { emailSchema, fail, findUserByEmail, generateTemporaryPassword } from "./admin-shared";
+import { createArtisanAccount } from "@/lib/admin/accounts";
+import { emailSchema, fail } from "./admin-shared";
 
 async function main() {
   const args = z
@@ -20,30 +21,11 @@ async function main() {
   if (!args.success) fail('Usage: --email <address> --name "<display name, 1-80 chars>"');
   const { email, name } = args.data;
 
-  const admin = createAdminClient();
-  if (await findUserByEmail(admin, email)) fail(`A user with ${email} already exists.`);
+  const result = await createArtisanAccount(createAdminClient(), email, name);
+  if (!result.ok) fail(result.error);
 
-  const password = generateTemporaryPassword();
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (createError || !created.user) fail(`Could not create the auth user: ${createError?.message}`);
-  const userId = created.user.id;
-
-  const { error: profileError } = await admin.from("profiles").insert({ id: userId, display_name: name });
-  if (profileError) {
-    const { error: rollbackError } = await admin.auth.admin.deleteUser(userId);
-    fail(
-      rollbackError
-        ? `Profile insert failed (${profileError.message}) AND rollback failed (${rollbackError.message}). Delete user ${userId} in the dashboard.`
-        : `Profile insert failed (${profileError.message}); the auth user was removed again.`,
-    );
-  }
-
-  console.log(`Created artisan ${email} (${userId}).`);
-  console.log(`Temporary password (shown once, share it privately): ${password}`);
+  console.log(`Created artisan ${email} (${result.data.userId}).`);
+  console.log(`Temporary password (shown once, share it privately): ${result.data.password}`);
 }
 
 main().catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));

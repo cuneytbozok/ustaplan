@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { KeyRound, LogOut } from "lucide-react";
 import { signOut } from "@/actions/auth";
 import { cn } from "@/lib/utils";
 
@@ -22,15 +22,26 @@ export function AdminHeader({ children }: { children: React.ReactNode }) {
           <span className="text-lg font-bold tracking-tight text-ink">UstaPlan</span>
           <span className="rounded-md bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">Yönetim</span>
         </div>
-        <form action={signOut} className="sm:order-last">
-          <button
-            type="submit"
-            className="flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-ink"
+        <div className="flex items-center gap-1 sm:order-last">
+          <Link
+            href="/admin/sifre"
+            aria-label="Şifre"
+            className="flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-ink"
           >
-            <LogOut className="size-4" aria-hidden />
-            Çıkış yap
-          </button>
-        </form>
+            <KeyRound className="size-4" aria-hidden />
+            <span className="hidden sm:inline">Şifre</span>
+          </Link>
+          <form action={signOut}>
+            <button
+              type="submit"
+              aria-label="Çıkış yap"
+              className="flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-ink"
+            >
+              <LogOut className="size-4" aria-hidden />
+              <span className="hidden sm:inline">Çıkış yap</span>
+            </button>
+          </form>
+        </div>
         <div className="w-full sm:w-auto sm:flex-1">{children}</div>
       </div>
     </header>

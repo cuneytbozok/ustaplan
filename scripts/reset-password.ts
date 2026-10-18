@@ -7,7 +7,8 @@
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { emailSchema, fail, findUserByEmail, generateTemporaryPassword } from "./admin-shared";
+import { resetArtisanPassword } from "@/lib/admin/accounts";
+import { emailSchema, fail, findUserByEmail } from "./admin-shared";
 
 async function main() {
   const args = z
@@ -20,12 +21,11 @@ async function main() {
   const user = await findUserByEmail(admin, email);
   if (!user) fail(`No user with ${email}.`);
 
-  const password = generateTemporaryPassword();
-  const { error } = await admin.auth.admin.updateUserById(user.id, { password });
-  if (error) fail(`Could not reset the password: ${error.message}`);
+  const result = await resetArtisanPassword(admin, user.id);
+  if (!result.ok) fail(result.code === "not_found" ? `${email} is not an artisan account.` : result.error);
 
   console.log(`Password reset for ${email} (${user.id}).`);
-  console.log(`Temporary password (shown once, share it privately): ${password}`);
+  console.log(`Temporary password (shown once, share it privately): ${result.data.password}`);
 }
 
 main().catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));

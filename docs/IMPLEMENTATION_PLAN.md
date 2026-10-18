@@ -519,6 +519,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | A-2 | **v3.2 (owner):** admin = separate auth user with `app_metadata.role = "admin"` and no profile; every admin page/action requires a TOTP-verified session (`aal2`); everyone else gets 404. Exactly one admin; no roles UI | ⚑ |
 | A-3 | **v3.2 (owner):** deactivation = auth ban + the artisan's push subscriptions deleted; data untouched; **customer links keep working**; reactivation restores it. No delete in the panel (erasure stays with the M6.6 scripts) | ⚑ |
 | A-4 | **v3.2:** the panel shows per-artisan counts only, never customer personal data or job content; figures computed in TypeScript with the admin client (no RPC, no migration, no chart library, no analytics service) | ⚑ |
+| A-6 | **M6.3:** a deactivated artisan's refresh is refused at once, but an already-issued access token stays valid until it expires (≤ 1 h), because the app checks JWTs locally with `getClaims()`. Accepted; the confirmation text says so. The admin changes their own password at `/admin/sifre` (the shared Ayarlar form) | |
 | A-5 | **v3.2:** no admin audit table; Supabase's auth audit log records user creation, password updates and bans. Temporary passwords are shown once and never logged or stored | |
 | T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.7) stays in Frankfurt.** | |
 

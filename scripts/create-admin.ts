@@ -10,6 +10,7 @@
  */
 import { parseArgs } from "node:util";
 import { z } from "zod";
+import { listAllUsers } from "@/lib/admin/accounts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emailSchema, fail, findUserByEmail, generateTemporaryPassword } from "./admin-shared";
 
@@ -34,13 +35,8 @@ async function main() {
     return;
   }
 
-  for (let page = 1; ; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) fail(`Could not list users: ${error.message}`);
-    const other = data.users.find((user) => user.app_metadata?.role === "admin" && user.id !== existing?.id);
-    if (other) fail("Another admin account already exists. There is exactly one admin.");
-    if (data.users.length < 1000) break;
-  }
+  const other = (await listAllUsers(admin)).find((user) => user.app_metadata?.role === "admin" && user.id !== existing?.id);
+  if (other) fail("Another admin account already exists. There is exactly one admin.");
 
   if (existing) {
     const { data: profile } = await admin.from("profiles").select("id").eq("id", existing.id).maybeSingle();

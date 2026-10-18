@@ -2,13 +2,18 @@
  * Admin panel checks for scripts/security-check.ts (plan §4.1, M6.2–M6.3).
  * Sessions are real @supabase/ssr cookies sent to the running app, so the
  * proxy and the server gate are exercised exactly as in a browser. A
- * temporary fake admin (role + TOTP enrolled here) is created and deleted.
+ * temporary fake admin (role + TOTP enrolled here) and a temporary fake
+ * artisan are created and deleted. M6.3: the panel's account actions are
+ * called over HTTP with their real action ids (from the production build's
+ * manifest): they work for an aal2 admin and change nothing for anyone else.
  */
 import { createHmac, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type Record = (name: string, ok: boolean, detail?: string) => void;
+type RecordFn = (name: string, ok: boolean, detail?: string) => void;
 
 export type AdminCheckContext = {
   url: string;
@@ -16,7 +21,7 @@ export type AdminCheckContext = {
   admin: SupabaseClient;
   base: string;
   tag: string;
-  record: Record;
+  record: RecordFn;
   artisanA: { email: string; password: string; id: string };
 };
 
@@ -53,6 +58,34 @@ export async function get(base: string, path: string, cookie?: string) {
   return { status: response.status, body, location: location ? new URL(location, base).pathname : null, headers: response.headers };
 }
 
+/** Action id of an exported server action, from the local production build (the app under test). */
+function actionId(filename: string, exportedName: string) {
+  const manifest = JSON.parse(readFileSync(".next/server/server-reference-manifest.json", "utf8")) as {
+    node: Record<string, { filename?: string; exportedName?: string }>;
+  };
+  const entry = Object.entries(manifest.node).find(([, value]) => value.filename === filename && value.exportedName === exportedName);
+  if (!entry) throw new Error(`No action ${exportedName} in ${filename}; rebuild (npm run build) before the security check`);
+  return entry[0];
+}
+
+/** Calls a server action the way the browser does (plain JSON args, same-origin). */
+async function callAction(base: string, page: string, id: string, args: unknown[], cookie?: string) {
+  const response = await fetch(`${base}${page}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "Next-Action": id, "Content-Type": "text/plain;charset=UTF-8", Accept: "text/x-component", Origin: base, ...(cookie ? { Cookie: cookie } : {}) },
+    body: JSON.stringify(args),
+  });
+  return { status: response.status, body: await response.text() };
+}
+
+async function canSignIn(url: string, publishableKey: string, email: string, password: string) {
+  const c = createClient(url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { error } = await c.auth.signInWithPassword({ email, password });
+  if (!error) await c.auth.signOut({ scope: "local" });
+  return error ? (error.code ?? "error") : "ok";
+}
+
 export async function adminPanelChecks(ctx: AdminCheckContext) {
   const { url, publishableKey, admin, base, tag, record, artisanA } = ctx;
   const panelPaths = ["/admin", "/admin/ustalar", "/admin/mfa"];
@@ -65,9 +98,13 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
   }
 
   // ---- Artisan A ----
-  const artisan = cookieSession(url, publishableKey);
-  const signIn = await artisan.client.auth.signInWithPassword({ email: artisanA.email, password: artisanA.password });
-  if (signIn.error) throw new Error(`Artisan A could not sign in for admin checks (${signIn.error.code})`);
+  const signInArtisan = async () => {
+    const session = cookieSession(url, publishableKey);
+    const { error } = await session.client.auth.signInWithPassword({ email: artisanA.email, password: artisanA.password });
+    if (error) throw new Error(`Artisan A could not sign in for admin checks (${error.code})`);
+    return session;
+  };
+  const artisan = await signInArtisan();
   for (const path of panelPaths) {
     const response = await get(base, path, artisan.cookie());
     record(`admin: artisan GET ${path} → 404, nothing about the panel`,
@@ -125,8 +162,87 @@ export async function adminPanelChecks(ctx: AdminCheckContext) {
     );
     record("admin: its user-scoped session sees no artisan rows (RLS)", leaks.every((n) => n === 0), JSON.stringify(leaks));
 
+    await accountActionChecks(ctx, { cookie: session.cookie(), adminId, adminEmail: email, adminPassword: password, artisanSession: signInArtisan });
     await session.client.auth.signOut({ scope: "local" });
   } finally {
     await admin.auth.admin.deleteUser(adminId);
+  }
+}
+
+/** M6.3: deactivate / reactivate / reset password over HTTP, with positive and negative controls. */
+async function accountActionChecks(
+  ctx: AdminCheckContext,
+  who: { cookie: string; adminId: string; adminEmail: string; adminPassword: string; artisanSession: () => Promise<ReturnType<typeof cookieSession>> },
+) {
+  const { url, publishableKey, admin, base, tag, record } = ctx;
+  const setActive = actionId("src/actions/admin.ts", "setArtisanActive");
+  const resetPassword = actionId("src/actions/admin.ts", "resetArtisanPassword");
+  const page = "/admin/ustalar";
+
+  // Temporary fake artisan with a profile and one (fake) push device.
+  const email = `${tag}-artisan@ustaplan.test`;
+  const password = randomBytes(18).toString("base64url");
+  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  if (created.error || !created.data.user) throw new Error(`Fixture artisan not created: ${created.error?.message}`);
+  const id = created.data.user.id;
+  try {
+    const profile = await admin.from("profiles").insert({ id, display_name: `${tag} usta` });
+    if (profile.error) throw new Error(`Fixture profile: ${profile.error.message}`);
+    await admin.from("push_subscriptions").insert({ owner_user_id: id, endpoint: `https://push.invalid/${tag}-admin`, p256dh: "x", auth: "y" });
+    const banned = async () => {
+      const { data } = await admin.auth.admin.getUserById(id);
+      return Boolean(data.user?.banned_until && Date.parse(data.user.banned_until) > Date.now());
+    };
+
+    // Session the fixture artisan holds before being deactivated.
+    const held = cookieSession(url, publishableKey);
+    await held.client.auth.signInWithPassword({ email, password });
+
+    // Negative controls: anon, an artisan, an admin without aal2.
+    const artisan = await who.artisanSession();
+    const aal1 = cookieSession(url, publishableKey);
+    await aal1.client.auth.signInWithPassword({ email: who.adminEmail, password: who.adminPassword });
+    for (const [label, cookie] of [["anon", undefined], ["artisan", artisan.cookie()], ["aal1 admin", aal1.cookie()]] as const) {
+      await callAction(base, page, setActive, [id, false], cookie);
+      await callAction(base, page, resetPassword, [id], cookie);
+      record(`admin actions: ${label} can't deactivate or reset an artisan`,
+        !(await banned()) && (await canSignIn(url, publishableKey, email, password)) === "ok", "account changed");
+    }
+    await artisan.client.auth.signOut({ scope: "local" });
+    await aal1.client.auth.signOut({ scope: "local" });
+
+    // Positive: aal2 admin deactivates.
+    const off = await callAction(base, page, setActive, [id, false], who.cookie);
+    const devices = await admin.from("push_subscriptions").select("id").eq("owner_user_id", id);
+    record("admin actions: aal2 admin deactivates (banned, push devices removed)", off.status === 200 && (await banned()) && devices.data?.length === 0, `${off.status}`);
+    record("deactivated artisan can't sign in", (await canSignIn(url, publishableKey, email, password)) === "user_banned", "signed in");
+    const refreshed = await held.client.auth.refreshSession();
+    record("deactivated artisan's open session can't be refreshed", Boolean(refreshed.error), "refreshed");
+    const stillValid = await held.client.auth.getUser();
+    console.log(`INFO  deactivated artisan's existing access token on getUser(): ${stillValid.error ? `refused (${stillValid.error.code})` : "still accepted until it expires (≤ JWT lifetime)"}`);
+
+    // Admin account itself is not an artisan: actions refuse it.
+    await callAction(base, page, setActive, [who.adminId, false], who.cookie);
+    await callAction(base, page, resetPassword, [who.adminId], who.cookie);
+    const adminUser = (await admin.auth.admin.getUserById(who.adminId)).data.user;
+    record("admin actions: the admin account itself can't be deactivated or reset",
+      !adminUser?.banned_until || Date.parse(adminUser.banned_until) <= Date.now(), "admin banned");
+    record("admin actions: admin password unchanged by a reset attempt on itself",
+      (await canSignIn(url, publishableKey, who.adminEmail, who.adminPassword)) === "ok", "admin password changed");
+
+    // Reactivate, then reset the password.
+    const on = await callAction(base, page, setActive, [id, true], who.cookie);
+    record("admin actions: reactivation restores sign-in", on.status === 200 && !(await banned()) && (await canSignIn(url, publishableKey, email, password)) === "ok", `${on.status}`);
+    const reset = await callAction(base, page, resetPassword, [id], who.cookie);
+    const newPassword = reset.body.match(/"password":"([A-Za-z0-9_-]{18})"/)?.[1];
+    record("admin actions: reset returns a new 18-character temporary password", Boolean(newPassword), `${reset.status}`);
+    record("after reset: old password refused, new password works",
+      (await canSignIn(url, publishableKey, email, password)) === "invalid_credentials" && Boolean(newPassword) && (await canSignIn(url, publishableKey, email, newPassword ?? "")) === "ok",
+      "unexpected sign-in result");
+    const unknown = await callAction(base, page, setActive, ["not-a-uuid", false], who.cookie);
+    record("admin actions: malformed id refused without error page", unknown.status === 200 && unknown.body.includes("Usta bulunamadı"), `${unknown.status}`);
+  } finally {
+    await admin.from("push_subscriptions").delete().eq("owner_user_id", id);
+    await admin.auth.admin.deleteUser(id);
   }
 }
