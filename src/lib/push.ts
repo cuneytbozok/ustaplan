@@ -3,6 +3,7 @@ import webpush, { WebPushError } from "web-push";
 import { pushEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderNotification } from "@/lib/push/render";
+import { notificationTarget } from "@/lib/push/target";
 
 /** What the service worker shows (public/sw.js): url is a same-origin path, tag the dedupe key. */
 export type PushMessage = { title: string; body: string; url: string; tag: string };
@@ -75,7 +76,7 @@ export async function deliverNotification(ownerId: string, dedupeKey: string) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from("notifications")
-    .select("id, job_id, category, payload, push_attempts")
+    .select("id, job_id, request_id, category, payload, push_attempts")
     .eq("owner_user_id", ownerId)
     .eq("dedupe_key", dedupeKey)
     .maybeSingle();
@@ -93,12 +94,7 @@ export async function deliverNotification(ownerId: string, dedupeKey: string) {
   let status: "sent" | "skipped" | "failed" = "failed";
   try {
     const { title, body } = renderNotification(row.category, row.payload);
-    const result = await sendPush(ownerId, {
-      title,
-      body,
-      url: row.job_id ? `/isler/${row.job_id}` : "/bildirimler",
-      tag: dedupeKey,
-    });
+    const result = await sendPush(ownerId, { title, body, ...notificationTarget(row, dedupeKey) });
     status = result.sent ? "sent" : result.failed ? "failed" : "skipped";
   } catch {
     status = "failed";

@@ -242,7 +242,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 | Customer cancelled | ✓ | immediate |
 | Reschedule requested | ✓ | immediate |
 | Counter accepted | ✓ | immediate |
-| Request withdrawn | ✓ | – |
+| Request withdrawn | ✓ | immediate, replaces the request's push (T-15) |
 | Customer photos (one item per job per day) | ✓ | – |
 | Appointment in 1 hour | – | scheduled (±5 min) |
 | Daily follow-up at 08:00 (only if something needs attention) | – | scheduled |
@@ -493,6 +493,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | T-8 | **v3.1:** timestamped migration names from `supabase migration new` | |
 | T-9 | **v3.1:** env validated lazily per feature; the build needs no secrets | |
 | T-12 | **M2.1:** `create_job` takes a caller-generated `job_id` (idempotent create). "Future" appointments in J4/J6 = `ends_at > now()` (P-2). `jobs_log_changes` refuses a lower `share_version`. Supabase advisor lint 0029 (definer RPCs executable by `authenticated`) is accepted by design: each RPC checks `auth.uid()` and ownership, covered by `security-check.ts`. | |
+| T-15 | **M5.7 (owner):** a notification can be older than the request it announced. Date-request pushes and inbox items open `/isler/<job>?talep=<request>`; the job page explains what happened to that request since (withdrawn, replaced — following the chain to the newest request —, answered, closed; `lib/domain/request-outcome.ts`) and the inbox shows its status. Withdrawals are pushed too (the withdraw route turns the RPC's inbox-only row to `pending` once), with the request's tag so they replace the earlier "yeni tarih istedi" on the phone. Target/tag rule: `lib/push/target.ts`. | |
 | T-14 | **M5.4 (owner):** no realtime subscriptions. The installed app and the customer page have no reload button, so one small client component calls `router.refresh()` when the page becomes visible again and on an interval (~30–60 s) while visible, paused while a sheet/dialog is open or an input has focus. No new dependency or service. Supabase Realtime was rejected: the customer side has no session (anon has nothing), and the artisan side would need a publication migration and a live connection. Closed/background apps rely on Web Push (M5.6–M5.7). | |
 | T-13 | **M3.1:** `save_appointment` keeps the DATA_MODEL signature; idempotency = same job + same times returns the existing (or replacement) appointment. Past times are allowed so a visit can be recorded late. Derived J2/J3 status changes write no extra `status_changed` event (the appointment event explains them). | |
 | T-11 | **M1.5 (owner):** manifest (`scope: "/"`, `start_url: /bugun`, standalone) + apple-icon + 192/512 icons moved forward from M5.5 so the iOS home-screen app stays standalone across tabs. | |

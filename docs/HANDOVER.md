@@ -9,7 +9,7 @@ _Rewritten at the end of every task. Last updated: 2026-10-18._
 **M5.6** (`b46cd95`, `2836a48`, closed in `d74b9fc`): Web Push subscriptions + test push, confirmed on the owner's iPhone.
 
 ## Current or interrupted task
-**M5.7 — In Progress (phone check pending).** Files: `src/lib/push.ts` (`deliverNotification`), the cancel / reschedule / reschedule-accept routes (`after()`), `pwa/push-settings.tsx` (help text), `scripts/security-check.ts`.
+**M5.7 — In Progress (phone check pending).** Files: `src/lib/push.ts` (`deliverNotification`), `src/lib/push/target.ts`, `src/lib/domain/request-outcome.ts`, the cancel / reschedule (POST + DELETE) / reschedule-accept routes (`after()`), `isler/[id]/page.tsx` (banner), `bildirimler/page.tsx` + `inbox-list.tsx` (status chips), `render.ts`, `pwa/push-settings.tsx` (help text), `scripts/security-check.ts`, plan (T-15, §9), DATA_MODEL.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
@@ -44,7 +44,7 @@ Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, 
 None after the M5.7 commit. Local commits not yet pushed: `d74b9fc` and the M5.7 commit.
 
 ## Exact next action
-Ask the owner to approve the push (deploys to Vercel). Then the owner, with notifications on and the UstaPlan app closed: from the customer link on a second phone, ask for a new date → a push "<Ad> yeni tarih istedi" arrives; tap it → the job opens; counter on the artisan phone, accept on the customer phone → "… önerdiğin saati kabul etti"; cancel → "… işi iptal etti · <sebep>". Each arrives once. If it works, mark M5.7 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.8** 🔑 (dispatcher: reminders, digest, retries incl. stuck `sending`, cleanup; migration `cron`; Vault secrets — approvals needed).
+Ask the owner to approve the push (deploys to Vercel). Then the owner, with notifications on and the UstaPlan app closed: request a new date, then withdraw it before opening → the withdrawal push replaces the request push; tap → job with the banner; inbox shows "Geri çekildi". Also: from the customer link on a second phone, ask for a new date → a push "<Ad> yeni tarih istedi" arrives; tap it → the job opens; counter on the artisan phone, accept on the customer phone → "… önerdiğin saati kabul etti"; cancel → "… işi iptal etti · <sebep>". Each arrives once. If it works, mark M5.7 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.8** 🔑 (dispatcher: reminders, digest, retries incl. stuck `sending`, cleanup; migration `cron`; Vault secrets — approvals needed).
 
 ## Resume commands
 ```bash

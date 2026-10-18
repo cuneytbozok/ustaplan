@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { MessageCircle, Navigation, Pencil, Phone } from "lucide-react";
+import { Info, MessageCircle, Navigation, Pencil, Phone } from "lucide-react";
 import { RequestCard } from "@/components/appointments/request-card";
 import { AppointmentsSection } from "@/components/appointments/appointments-section";
 import { BackLink } from "@/components/common/back-link";
@@ -23,6 +23,7 @@ import { DEFAULT_DURATION_MINUTES, pickerDefaults } from "@/lib/domain/schedulin
 import { formatTRY } from "@/lib/domain/money";
 import { formatPhone, telHref } from "@/lib/domain/phone";
 import { formatDate, formatShortDate, hasNotEnded } from "@/lib/domain/time";
+import { requestOutcomeMessage } from "@/lib/domain/request-outcome";
 
 export const metadata: Metadata = { title: "İş" };
 
@@ -50,7 +51,7 @@ async function JobDetail({
   params: PageProps<"/isler/[id]">["params"];
   searchParams: PageProps<"/isler/[id]">["searchParams"];
 }) {
-  const [{ id }, { planla, paylas }] = await Promise.all([params, searchParams]);
+  const [{ id }, { planla, paylas, talep }] = await Promise.all([params, searchParams]);
   if (!UUID.test(id)) return <NotFoundState backHref="/isler" backLabel="İşlere dön" />;
 
   const supabase = await createClient();
@@ -106,6 +107,8 @@ async function JobDetail({
   // J4/J6: the cascade cancels scheduled visits that haven't ended (P-2).
   const upcoming = job.appointments.filter((a) => a.status === "scheduled" && hasNotEnded(a.ends_at));
   const { today, tomorrow, date, time } = pickerDefaults();
+  // Opened from a date-request notification (?talep=…): say what happened to it since, if it no longer waits.
+  const outcome = typeof talep === "string" && UUID.test(talep) ? await requestOutcomeFor(supabase, job, talep) : null;
   const openRequests = requestsResult.data.flatMap((r) => {
     const appointment = job.appointments.find((a) => a.id === r.appointment_id);
     return appointment ? [{ ...r, appointment }] : [];
@@ -114,6 +117,13 @@ async function JobDetail({
 
   return (
     <>
+      {outcome ? (
+        <p role="status" className="flex items-start gap-2 rounded-2xl border border-border bg-primary-soft px-4 py-3 text-sm text-ink">
+          <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          {outcome}
+        </p>
+      ) : null}
+
       <section className={cardClass}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -276,4 +286,35 @@ async function JobDetail({
       </section>
     </>
   );
+}
+
+/** The banner text for a request this page was opened for (RLS: the artisan's own requests only). */
+async function requestOutcomeFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  job: { id: string; status: string; appointments: { id: string; starts_at: string }[] },
+  requestId: string,
+) {
+  const { data: request } = await supabase
+    .from("appointment_requests")
+    .select("status, appointment_id, resulting_appointment_id, created_at")
+    .eq("id", requestId)
+    .eq("job_id", job.id)
+    .maybeSingle();
+  if (!request) return null;
+  // The newest request for the same visit, if the customer asked again after this one.
+  const { data: newer } = await supabase
+    .from("appointment_requests")
+    .select("status, resulting_appointment_id")
+    .eq("appointment_id", request.appointment_id)
+    .gt("created_at", request.created_at)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const startOf = (appointmentId: string | null) => job.appointments.find((a) => a.id === appointmentId)?.starts_at ?? null;
+  return requestOutcomeMessage({
+    status: request.status,
+    jobStatus: job.status,
+    resultingStartsAt: startOf(request.resulting_appointment_id),
+    latest: newer ? { status: newer.status, resultingStartsAt: startOf(newer.resulting_appointment_id) } : null,
+  });
 }

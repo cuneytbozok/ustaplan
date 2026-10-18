@@ -160,7 +160,7 @@ Event types: `job_created, job_updated, status_changed, price_changed, price_vis
 | `customer_cancelled` | immediate | yes | `cancel:<job_id>` |
 | `reschedule_requested` | immediate | yes | `request:<request_id>` |
 | `counter_accepted` | immediate | yes | `accepted:<request_id>` |
-| `request_withdrawn` | — | yes | `withdrawn:<request_id>` |
+| `request_withdrawn` | immediate (owner decision 2026-10-18: the withdraw route sets `push_status` from `none` to `pending` once; tag `request:<request_id>` replaces the request's push) | yes | `withdrawn:<request_id>` |
 | `customer_photo_added` | — | yes (one item per job per day; repeat uploads increment `payload.count` and mark it unread again) | `photos:<job_id>:<YYYY-MM-DD Istanbul>` |
 | `appointment_reminder` | scheduled | no | `appt-reminder:<appointment_id>` |
 | `daily_digest` | scheduled | no | `digest:<YYYY-MM-DD Istanbul>` |

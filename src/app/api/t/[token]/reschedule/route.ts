@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: RouteContext<"/api/t/[t
   }
 }
 
-/** Customer withdraws the open request (public_withdraw_request). Repeats are ok. */
+/** Customer withdraws the open request (public_withdraw_request) and the artisan is told. Repeats are ok. */
 export async function DELETE(request: Request, { params }: RouteContext<"/api/t/[token]/reschedule">) {
   if (!isSameOrigin(request)) return actionResponse({ ok: false, error: "İstek reddedildi." }, 403);
   const { token } = await params;
@@ -77,7 +77,23 @@ export async function DELETE(request: Request, { params }: RouteContext<"/api/t/
   if (error) return actionResponse({ ok: false, error: TRY_AGAIN }, 500);
 
   const result = (data as { result?: string } | null)?.result;
-  if (result === "ok") return actionResponse({ ok: true });
+  if (result === "ok") {
+    // Owner decision (2026-10-18): a withdrawal is pushed too, replacing the
+    // earlier "yeni tarih istedi" on the phone (same tag). The RPC stores it
+    // inbox-only; only its first time turns on the push, so repeats don't resend.
+    const dedupeKey = `withdrawn:${parsed.data.requestId}`;
+    after(async () => {
+      const { data: queued } = await verified.admin
+        .from("notifications")
+        .update({ push_status: "pending" })
+        .eq("owner_user_id", verified.ownerId)
+        .eq("dedupe_key", dedupeKey)
+        .eq("push_status", "none")
+        .select("id");
+      if (queued?.length) await deliverNotification(verified.ownerId, dedupeKey);
+    });
+    return actionResponse({ ok: true });
+  }
   if (result === "link_invalid") return invalidLink();
   return actionResponse({ ok: false, error: CHANGED }, 409);
 }

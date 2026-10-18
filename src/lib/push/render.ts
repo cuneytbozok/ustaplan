@@ -32,7 +32,7 @@ export function renderNotification(category: string, payload: unknown): Rendered
     case "counter_accepted":
       return { title: `${who} önerdiğin saati kabul etti`, body: join(job, when(p.starts_at)) };
     case "request_withdrawn":
-      return { title: `${who} tarih talebini geri çekti`, body: job };
+      return { title: `${who} tarih talebini geri çekti`, body: join(job, "Randevu aynı kaldı") };
     case "customer_photo_added": {
       const count = typeof p.count === "number" && p.count > 1 ? p.count : 1;
       return { title: count > 1 ? `${who} ${count} fotoğraf ekledi` : `${who} fotoğraf ekledi`, body: job };

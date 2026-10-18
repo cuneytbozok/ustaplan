@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils";
 export type InboxItem = {
   id: string;
   category: string;
-  jobId: string | null;
+  /** Where tapping leads (the job, with ?talep= for date requests); null = nowhere to go. */
+  href: string | null;
+  /** Where a date request stands now ("Geri çekildi"…), when it no longer waits for the artisan. */
+  status: string | null;
   title: string;
   body: string;
   when: string;
@@ -38,7 +41,7 @@ function Row({ item }: { item: InboxItem }) {
         const result = await markNotificationRead(item.id);
         if (!result.ok) return setError(result.error);
       }
-      if (item.jobId) router.push(`/isler/${item.jobId}`);
+      if (item.href) router.push(item.href);
     });
   }
 
@@ -64,8 +67,11 @@ function Row({ item }: { item: InboxItem }) {
             {item.unread ? "Yeni · " : ""}
             {item.when}
           </span>
+          {item.status ? (
+            <span className="mt-1.5 inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-ink">{item.status}</span>
+          ) : null}
         </span>
-        {item.jobId ? <ChevronRight className="mt-2.5 size-5 shrink-0 text-muted-foreground" aria-hidden /> : null}
+        {item.href ? <ChevronRight className="mt-2.5 size-5 shrink-0 text-muted-foreground" aria-hidden /> : null}
       </button>
       {error ? (
         <p role="alert" className="mt-1 rounded-xl bg-danger/10 px-3 py-2.5 text-sm text-danger">

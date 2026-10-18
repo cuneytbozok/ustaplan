@@ -552,6 +552,10 @@ async function main() {
       record("withdraw from a foreign Origin → 403", (await json(`/api/t/${current}/reschedule`, "DELETE", { requestId: open[0]?.id }, "https://evil.example")).status === 403, "accepted");
       record("customer withdraws → 200", (await json(`/api/t/${current}/reschedule`, "DELETE", { requestId: open[0]?.id })).status === 200 && (await openRequests()).length === 0, "still open");
       record("repeat withdraw → 200", (await json(`/api/t/${current}/reschedule`, "DELETE", { requestId: open[0]?.id })).status === 200, "refused");
+      // Owner decision: withdrawals are pushed too (once), replacing the request's notification on the phone.
+      const withdrawPush = await pushState("request_withdrawn", `withdrawn:${open[0]?.id}`);
+      record("withdrawal push processed once, repeat withdraw didn't resend",
+        withdrawPush?.length === 1 && ["failed", "skipped"].includes(withdrawPush[0].push_status) && withdrawPush[0].push_attempts === 1, JSON.stringify(withdrawPush));
       // Left open on purpose: the customer cancel below must close it (J6).
       await json(`/api/t/${current}/reschedule`, "POST", { ...ask, time: "12:45" });
 
