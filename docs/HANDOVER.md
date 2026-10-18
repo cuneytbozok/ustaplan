@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.5** (service worker, offline page, install guide) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1–M5.4 are complete.
+**M5.5** is complete (service worker, offline page, install guide; confirmed on the owner's iPhone). **M5.6** 🔑 (Web Push subscriptions, settings, test push) is starting.
 
 ## Last completed task
-**M5.4** (`35b317e`, `aad04ec`, closed in `7ae9629`): inbox + auto-refresh, confirmed on the owner's phones.
+**M5.5** (`72a9c52`): `public/sw.js`, `public/offline.html`, `PwaSetup`, `InstallGuide` in Ayarlar.
 
 ## Current or interrupted task
-**M5.5 — In Progress (phone check pending).** Files: `public/sw.js`, `public/offline.html`, `src/components/pwa/pwa-setup.tsx`, `src/components/pwa/install-guide.tsx` (new); `next.config.ts` (`/sw.js` headers), `(app)/layout.tsx`, `ayarlar/page.tsx`, `manifest.ts` (comment).
+M5.6 — just started.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
