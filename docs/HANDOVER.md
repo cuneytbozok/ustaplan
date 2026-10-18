@@ -3,7 +3,7 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M4.5 is Completed** (security-check v2: 148/148 against a production build). **M4.3 + M4.4** are done locally and wait for: `SHARE_LINK_SECRET` in Vercel (owner approval), push/deploy, and the second-phone check. Then M4 is complete.
+**M4 is deployed** (`7b6416e`, production redeployed after adding `SHARE_LINK_SECRET` and `SUPABASE_SECRET_KEY` to Vercel). M4.5 is Completed; M4.3 + M4.4 wait only for the owner's second-phone check.
 
 ## Last completed task
 **M4.5**: customer-link, exposure, read-only and media-proxy checks in `scripts/security-check.ts`.
@@ -43,9 +43,9 @@ M4.3 + M4.4: code done and committed (`ade1965`, `c198e9d`); only external steps
 None. Unpushed: everything since `49d01db` (M4.2 close-out, M4.3, M4.4, M4.5, handovers).
 
 ## Exact next action
-1. Owner approval: add `SHARE_LINK_SECRET` (new random value, ≥ 32 chars, different from the local one) to the Vercel project, Production + Preview, then `git push` (deploy).
-2. Owner phone check: on a job, "Müşteriyle paylaş" → WhatsApp → open the link on a second phone; regenerate → the old link shows "Bu bağlantı geçersiz veya kapatılmış."; check `/gizlilik` from the page footer.
-3. On OK: mark M4.3 and M4.4 Completed (**M4 complete**), commit. Then M5.1 🔑 on instruction.
+1. Owner phone check: on a job, "Müşteriyle paylaş" → WhatsApp → open the link on a second phone; regenerate → the old link shows "Bu bağlantı geçersiz veya kapatılmış."; open "Kişisel verileriniz" from the page footer.
+2. On OK: mark M4.3 and M4.4 Completed (**M4 complete**), commit. Then M5.1 🔑 on instruction.
+- Vercel env now: public Supabase URL/key, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview), `SUPABASE_SECRET_KEY` (Production, dev project). The local folder is linked (`.vercel/`, git-ignored); `vercel link` also appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed.
 
 ## Resume commands
 ```bash
