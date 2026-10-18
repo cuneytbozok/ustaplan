@@ -10,7 +10,9 @@
  * Origin, link checks, request → counter → accept swap, withdraw, idempotency,
  * cross-user respond). M5.7: immediate pushes are claimed and processed once
  * after the response (the fixture device is fake, so they end as failed with a
- * retry time). Extended in M5.9.
+ * retry time). v3 (M5.9): dispatcher auth (missing/wrong bearer, GET), and
+ * concurrent customer actions: two date requests at once, accept vs withdraw,
+ * double accept, double cancel — each ends in one consistent outcome.
  *
  *   npm run security-check
  *
@@ -27,7 +29,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { adminEnv, appEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
+import { adminEnv, appEnv, cronEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
 import { createShareToken, signJobLink } from "@/lib/share-link";
 import { istanbulDateKey } from "@/lib/domain/scheduling";
 
@@ -108,6 +110,8 @@ async function main() {
     sharedMedia: randomUUID(),
     audio: randomUUID(),
     bMedia: randomUUID(),
+    cJob: randomUUID(),
+    dJob: randomUUID(),
   };
   const objectPath = `${a.id}/${ids.job}/${ids.media}.jpg`;
   const sharedPath = `${a.id}/${ids.job}/${ids.sharedMedia}.jpg`;
@@ -610,6 +614,116 @@ async function main() {
       record("upload on a cancelled job → 409", (await upload(current, jpeg)).status === 409, "accepted");
       const live = (await customerRows()).find((r) => !r.deleted_at);
       record("customer can still delete own photo on a cancelled job", Boolean(live) && (await remove(current, live!.id)).status === 200, "refused");
+
+      // ---- Dispatcher (M5.9): only Supabase Cron with the bearer secret may run it ----
+      console.log("\nDispatcher endpoint");
+      const dispatch = async (authorization?: string, method = "POST") => {
+        const response = await fetch(`${base}/api/internal/dispatch`, { method, redirect: "manual", headers: authorization ? { Authorization: authorization } : {} });
+        return { status: response.status, headers: response.headers, body: await response.text() };
+      };
+      const cron = cronEnv().secret;
+      record("dispatch without a bearer → 401", (await dispatch()).status === 401, "accepted");
+      record("dispatch with a wrong bearer → 401", (await dispatch("Bearer wrong-secret")).status === 401, "accepted");
+      record("dispatch with the secret plus one character → 401", (await dispatch(`Bearer ${cron}x`)).status === 401, "accepted");
+      record("dispatch with the secret but no Bearer prefix → 401", (await dispatch(cron)).status === 401, "accepted");
+      record("dispatch GET → 405", (await dispatch(`Bearer ${cron}`, "GET")).status === 405, "accepted");
+      // Same as one 5-minute cron cycle on dev (it already runs there): counts only, no data.
+      const run = await dispatch(`Bearer ${cron}`);
+      let runKeys = "";
+      try {
+        runKeys = Object.keys(JSON.parse(run.body)).sort().join(",");
+      } catch {}
+      record("dispatch with the secret → 200, counts only, no-store",
+        run.status === 200 && runKeys === "cleanup,digests,push,reminders" && /no-store/.test(run.headers.get("cache-control") ?? ""), `${run.status} ${runKeys}`);
+
+      // ---- Consistency under concurrency (M5.9): two taps / two tabs at the same moment ----
+      console.log("\nConsistency (concurrent customer actions)");
+      const jobLink = (jobId: string) => createShareToken(secret, jobId, 1);
+      const call = async (token: string, path: string, method: "POST" | "DELETE", body: unknown) => {
+        const response = await fetch(`${base}/api/t/${token}${path}`, {
+          method,
+          redirect: "manual",
+          headers: { "Content-Type": "application/json", Origin: origin },
+          body: JSON.stringify(body),
+        });
+        return response.status;
+      };
+      const requestsOf = async (jobId: string) =>
+        ((await admin.from("appointment_requests").select("id, status").eq("job_id", jobId)).data ?? []) as { id: string; status: string }[];
+      const visitsOf = async (jobId: string) =>
+        ((await admin.from("appointments").select("id, status, starts_at").eq("job_id", jobId)).data ?? []) as { id: string; status: string; starts_at: string }[];
+      const countOf = async (table: "job_events" | "notifications", jobId: string, column: "event_type" | "category", value: string) =>
+        (await admin.from(table).select("id", { count: "exact", head: true }).eq("job_id", jobId).eq(column, value)).count ?? 0;
+      const newJob = async (jobId: string, title: string) => {
+        const r = await a.client.rpc("create_job", { p_job_id: jobId, p_title: `${tag} ${title}`, p_customer_id: ids.customer, p_starts_at: later(72), p_ends_at: later(73) });
+        if (rpcResult(r) !== "ok") throw new Error(`fixture ${title} failed`);
+      };
+      const counter = async (requestId: string, at: number) =>
+        rpcResult(await a.client.rpc("respond_to_request", { p_request_id: requestId, p_action: "counter", p_counter_starts_at: later(at), p_counter_ends_at: later(at + 1) }));
+
+      // Job C: accept the counter and withdraw it at the same moment.
+      await newJob(ids.cJob, "eşzamanlı-1");
+      const cLink = jobLink(ids.cJob);
+      await call(cLink, "/reschedule", "POST", { date: istanbulDateKey(new Date(), 4), time: "10:00" });
+      const [cRequest] = await requestsOf(ids.cJob);
+      record("job C: counter offered", (await counter(cRequest.id, 80)) === "ok", "counter failed");
+      const raced = await Promise.all([
+        call(cLink, "/reschedule/accept", "POST", { requestId: cRequest.id }),
+        call(cLink, "/reschedule", "DELETE", { requestId: cRequest.id }),
+      ]);
+      const cFinal = (await requestsOf(ids.cJob)).find((r) => r.id === cRequest.id)?.status;
+      const cVisits = await visitsOf(ids.cJob);
+      const cScheduled = cVisits.filter((v) => v.status === "scheduled");
+      record("accept vs withdraw at once: exactly one wins (200 + 409)", JSON.stringify([...raced].sort()) === "[200,409]", JSON.stringify(raced));
+      record("accept vs withdraw: request ends accepted or withdrawn",
+        cFinal === "accepted" || cFinal === "withdrawn", String(cFinal));
+      record("accept vs withdraw: exactly one scheduled visit, matching the outcome",
+        cScheduled.length === 1 &&
+          (cFinal === "accepted"
+            ? Date.parse(cScheduled[0].starts_at) === Date.parse(later(80)) && cVisits.some((v) => v.status === "superseded")
+            : Date.parse(cScheduled[0].starts_at) === Date.parse(later(72)) && !cVisits.some((v) => v.status === "superseded")),
+        JSON.stringify({ cFinal, cVisits }));
+      record("accept vs withdraw: only the winner's notification",
+        (await countOf("notifications", ids.cJob, "category", "counter_accepted")) === (cFinal === "accepted" ? 1 : 0) &&
+          (await countOf("notifications", ids.cJob, "category", "request_withdrawn")) === (cFinal === "withdrawn" ? 1 : 0),
+        "notification mismatch");
+
+      // Job D: two different date requests at once, then a double accept, then a double cancel.
+      await newJob(ids.dJob, "eşzamanlı-2");
+      const dLink = jobLink(ids.dJob);
+      const twoRequests = await Promise.all([
+        call(dLink, "/reschedule", "POST", { date: istanbulDateKey(new Date(), 5), time: "09:00" }),
+        call(dLink, "/reschedule", "POST", { date: istanbulDateKey(new Date(), 5), time: "15:00" }),
+      ]);
+      const dOpen = (await requestsOf(ids.dJob)).filter((r) => ["pending_artisan", "pending_customer"].includes(r.status));
+      record("two date requests at once: both answered, exactly one open request", twoRequests.every((st) => st === 200) && dOpen.length === 1, JSON.stringify({ twoRequests, open: dOpen.length }));
+      record("job D: counter offered", (await counter(dOpen[0].id, 90)) === "ok", "counter failed");
+      const doubleAccept = await Promise.all([
+        call(dLink, "/reschedule/accept", "POST", { requestId: dOpen[0].id }),
+        call(dLink, "/reschedule/accept", "POST", { requestId: dOpen[0].id }),
+      ]);
+      const dVisits = await visitsOf(ids.dJob);
+      record("double accept at once: both 200, exactly one new visit",
+        doubleAccept.every((st) => st === 200) && dVisits.filter((v) => v.status === "scheduled").length === 1 && dVisits.filter((v) => v.status === "superseded").length === 1,
+        JSON.stringify({ doubleAccept, dVisits }));
+      record("double accept: one request_accepted event, one counter_accepted notification",
+        (await countOf("job_events", ids.dJob, "event_type", "request_accepted")) === 1 && (await countOf("notifications", ids.dJob, "category", "counter_accepted")) === 1,
+        "duplicated");
+      const doubleCancel = await Promise.all([
+        call(dLink, "/cancel", "POST", { reason: "changed_mind" }),
+        call(dLink, "/cancel", "POST", { reason: "price_too_high" }),
+      ]);
+      const dJob = (await admin.from("jobs").select("status, cancelled_reason").eq("id", ids.dJob).single()).data as { status: string; cancelled_reason: string } | null;
+      record("double cancel at once: both 200, job cancelled once with one of the reasons",
+        doubleCancel.every((st) => st === 200) && dJob?.status === "cancelled" && ["changed_mind", "price_too_high"].includes(dJob.cancelled_reason),
+        JSON.stringify({ doubleCancel, dJob }));
+      record("double cancel: one job_cancelled event, one customer_cancelled notification",
+        (await countOf("job_events", ids.dJob, "event_type", "job_cancelled")) === 1 && (await countOf("notifications", ids.dJob, "category", "customer_cancelled")) === 1,
+        "duplicated");
+      record("cancelled job D: no future scheduled visit, no open request",
+        !(await visitsOf(ids.dJob)).some((v) => v.status === "scheduled" && Date.parse(v.starts_at) > Date.now()) &&
+          !(await requestsOf(ids.dJob)).some((r) => ["pending_artisan", "pending_customer"].includes(r.status)),
+        "left open");
     }
   } finally {
     // ---- Cleanup (cascades remove appointments, requests, media rows, events, notifications) ----
@@ -618,6 +732,7 @@ async function main() {
     await admin.storage.from("job-images").remove([objectPath, sharedPath, `${a.id}/${ids.job}/ctl.jpg`, `${a.id}/${ids.job}/b.jpg`, `${b.id}/${ids.job}/b.jpg`, `${a.id}/${ids.job}/anon.jpg`]);
     await admin.from("push_subscriptions").delete().like("endpoint", `https://push.invalid/${tag}%`);
     // A's job has accepted reschedules by now; it must still cascade-delete (account deletion).
+    await admin.from("jobs").delete().in("id", [ids.cJob, ids.dJob]);
     const deletedJobs = await admin.from("jobs").delete().in("id", [ids.job, ids.bJob]).select("id");
     record("jobs with accepted reschedules can be deleted (cascade)", deletedJobs.data?.length === 2, deletedJobs.error?.message ?? `${deletedJobs.data?.length} deleted`);
     await admin.from("customers").delete().in("id", [ids.customer, ids.bCustomer]);

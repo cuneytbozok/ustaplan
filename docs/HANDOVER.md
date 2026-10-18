@@ -3,10 +3,10 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.8** is complete: dispatcher deployed (`29d77dd`), `cron` migration on dev, Vault secrets stored by the owner, first scheduled call returned 200 (18:30 Istanbul). Next: **M5.9** (security-check v3). M5 closes only after the deferred phone checks **D1–D7** (PROGRESS) pass.
+All **M5** tasks are complete (M5.9: security-check v3, 258/258 twice). M5 closes after the owner's deferred phone checks **D1–D7** (PROGRESS). Then M6.
 
 ## Last completed task
-**M5.8** (`29d77dd`): `/api/internal/dispatch`, reminders, digest, retries/lease, cleanup, `ustaplan-dispatch` every 5 min.
+**M5.9**: `scripts/security-check.ts` v3 — dispatcher auth and concurrent customer actions (accept vs withdraw, two requests, double accept, double cancel).
 
 ## Current or interrupted task
 None.
@@ -29,8 +29,8 @@ None.
 - **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
 - **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Tests executed (M5.8)
-Local production build: dispatcher auth; fixture run on dev (reminder rule, retries, stuck lease, stale pending, digest once, no duplicates); cleanup at a simulated 03:01; security-check 240/240; live endpoint 401/200 after deploy.
+## Tests executed (M5.9)
+security-check 258/258 twice in a row against a local production build (:3200); typecheck, lint. The last full `npm run build` (M5.8) covers the current app code.
 
 ## Known bugs and blockers
 - `npm audit`: high advisories only in dev tooling (ESLint chain, shadcn CLI: braces/micromatch); accepted, none in runtime packages.
@@ -42,10 +42,10 @@ Local production build: dispatcher auth; fixture run on dev (reminder rule, retr
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. The M5.8 close-out commit is local; push it with the next approved push.
+None. Local commits not yet pushed: `5394618` (M5.8 close-out) and the M5.9 commit (script + docs only; no app change).
 
 ## Exact next action
-On "start the next task", do **M5.9**: extend `scripts/security-check.ts` (v3) per plan §12 — dispatcher auth (no/wrong bearer 401, GET 405, no-store; a real run with the secret only against a local production build), cancel/reschedule consistency (concurrent cancel vs. accept, double accept, request after cancel). Mind: any dispatcher run sends real pushes to subscribed dev devices. Then the end-of-M5 phone checks D1–D7 with the owner.
+With the owner: run the deferred phone checks **D1–D7** (PROGRESS → Deferred owner phone checks) on the deployed app. Record each result; fix anything that fails (that work belongs to the M5 task it came from). When all pass, mark M5 closed in PROGRESS and stop. Next milestone task after that: **M6.1** (only when the owner says "start the next task").
 
 ## Resume commands
 ```bash
