@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Bell } from "lucide-react";
+import { BackLink } from "@/components/common/back-link";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
@@ -13,9 +14,13 @@ export const metadata: Metadata = { title: "Bildirimler" };
 
 export default function NotificationsPage() {
   return (
-    <Suspense fallback={<ListSkeleton rows={5} />}>
-      <Inbox />
-    </Suspense>
+    <>
+      {/* Back to wherever the bell was tapped; Bugün without in-app history. */}
+      <BackLink href="/bugun" />
+      <Suspense fallback={<ListSkeleton rows={5} />}>
+        <Inbox />
+      </Suspense>
+    </>
   );
 }
 
@@ -42,7 +47,7 @@ async function Inbox() {
 
   return (
     <>
-      <PageHeader title="Bildirimler" subtitle={unread ? `${unread} okunmamış` : "Hepsi okundu"} />
+      <PageHeader title="Bildirimler" subtitle={unread ? `${unread} okunmamış` : items.length ? "Hepsi okundu" : undefined} />
       {items.length === 0 ? (
         <EmptyState
           icon={Bell}
