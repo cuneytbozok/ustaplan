@@ -157,7 +157,7 @@ export function PushSettings() {
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        Bildirimlerin ulaşması garanti değildir; telefonun izinlerine ve bağlantına bağlıdır. iPhone&apos;da iOS 16.4 ve üstü gerekir. Önemli her şey Bugün ekranında ve bildirim kutusunda her zaman görünür.
+        Müşteri işi iptal ettiğinde, yeni tarih istediğinde ya da önerdiğin saati kabul ettiğinde bildirim gelir. Bildirimlerin ulaşması garanti değildir; telefonun izinlerine ve bağlantına bağlıdır. iPhone&apos;da iOS 16.4 ve üstü gerekir. Önemli her şey Bugün ekranında ve bildirim kutusunda her zaman görünür.
       </p>
     </div>
   );

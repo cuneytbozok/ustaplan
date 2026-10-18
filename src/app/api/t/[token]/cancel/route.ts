@@ -1,7 +1,9 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { verifyCustomerToken } from "@/lib/customer-link";
 import { actionResponse, invalidLink, isSameOrigin, readJsonBody } from "@/lib/customer-api";
 import { CANCEL_REASON_LABELS, type CancelReason } from "@/lib/domain/labels";
+import { deliverNotification } from "@/lib/push";
 
 const schema = z
   .object({
@@ -40,7 +42,11 @@ export async function POST(request: Request, { params }: RouteContext<"/api/t/[t
   if (error) return actionResponse({ ok: false, error: "İptal kaydedilemedi. Lütfen tekrar deneyin." }, 500);
 
   const result = (data as { result?: string } | null)?.result;
-  if (result === "ok") return actionResponse({ ok: true });
+  if (result === "ok") {
+    // Immediate push (plan §9): after the response, independent of cron. A repeat finds it already sent.
+    after(() => deliverNotification(verified.ownerId, `cancel:${verified.jobId}`));
+    return actionResponse({ ok: true });
+  }
   if (result === "link_invalid") return invalidLink();
   if (result === "invalid_transition") return actionResponse({ ok: false, error: "Bu iş artık iptal edilemiyor." }, 409);
   return actionResponse({ ok: false, error: "Lütfen bir iptal sebebi seçin." });

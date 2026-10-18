@@ -3,19 +3,20 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.6** (Web Push subscriptions, settings, test push) is complete: deployed (`2836a48`) and confirmed on the owner's iPhone with the app closed. Next: **M5.7** (immediate pushes), on the owner's instruction.
+**M5.7** (immediate pushes for cancel, date request, counter accepted) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1–M5.6 are complete.
 
 ## Last completed task
-**M5.6** (`b46cd95`, `2836a48`): `lib/push.ts`, `actions/push.ts`, Ayarlar → Bildirimler, logout removes the device, VAPID keys on Vercel Production.
+**M5.6** (`b46cd95`, `2836a48`, closed in `d74b9fc`): Web Push subscriptions + test push, confirmed on the owner's iPhone.
 
 ## Current or interrupted task
-None.
+**M5.7 — In Progress (phone check pending).** Files: `src/lib/push.ts` (`deliverNotification`), the cancel / reschedule / reschedule-accept routes (`after()`), `pwa/push-settings.tsx` (help text), `scripts/security-check.ts`.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
 - **Freshness (T-14, owner 2026-10-18):** no Realtime; `AutoRefresh` refreshes on visibility/focus + every 30 s while visible, not while a sheet is open (sheets with `data-state="closed"` ignored) or a text field is focused. Push covers closed apps.
 - **Service worker (M5.5):** network-only navigations with an offline fallback, never caches HTML/API, ignores `/t/*`; push payload contract `{title, body, url, tag}` (url = same-origin path, tag = dedupe key). Registered only in production builds, so test PWA behaviour with `npm run build && npm run start` (`prod-check`), and unregister it in the pane afterwards.
 - **Push (M5.6):** `sendPush` is the only sender (admin client); a device belongs to the artisan who enabled it last; "on" requires the server row (never auto-subscribe); logout deletes this device's row. VAPID: `.env.local` + Vercel Production (private key sensitive, can't be read back).
+- **Push status flow (M5.7):** `pending` → claim (`sending`, attempts+1) → `sent` / `skipped` / `failed` (+ `push_next_attempt_at` 5 min, 15 min, none after 3). M5.8's dispatcher must also pick up `failed` rows that are due and rows stuck in `sending` (a killed function).
 - **Inbox copy:** only `lib/push/render.ts` turns category + payload into text; M5.7 pushes must reuse it.
 - **Browser tests:** stale hidden copies of earlier pages can hold buttons with the same label; target the visible page (`find`/refs) and verify writes in the DB.
 - **Customer photos (M5.2):** route handlers with the admin client, no RPC (DATA_MODEL §4). Limits are counted from `job_media` and can overshoot by one or two under concurrency. The daily `customer_photo_added` item is insert-then-update on conflict (a lost increment under a race is accepted). Only JPEG is accepted; the browser always re-encodes to JPEG.
@@ -27,8 +28,8 @@ None.
 - **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
 - **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Tests executed (M5.6)
-`sendPush` against real push services with fake subscriptions (410 removed, failure counting, 5th failure removed); Ayarlar denied state in the pane; security-check 235/235; typecheck, lint, build.
+## Tests executed (M5.7)
+security-check 239/239 on a production build (push claimed and processed once per event, retry time, skipped without devices, no resend on repeats); typecheck, lint, build.
 
 ## Known bugs and blockers
 - `npm audit`: high advisories only in dev tooling (ESLint chain, shadcn CLI: braces/micromatch); accepted, none in runtime packages.
@@ -40,10 +41,10 @@ None.
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. The M5.6 close-out commit is local; push it with the next approved push.
+None after the M5.7 commit. Local commits not yet pushed: `d74b9fc` and the M5.7 commit.
 
 ## Exact next action
-On "start the next task", do **M5.7**: immediate pushes for `customer_cancelled`, `reschedule_requested`, `counter_accepted` from the customer routes via `after()`: claim the notification the RPC inserted (`push_status in ('pending','failed')` → `sending`, conditional update), render with `render.ts`, send with `sendPush` (url `/isler/<job>`, tag = dedupe key), mark `sent`/`failed` (+ `push_attempts`, `push_next_attempt_at` for M5.8 retries) or `skipped` when the artisan has no device. Add the event sentence back to the Bildirimler help text. Check current `after()` docs first.
+Ask the owner to approve the push (deploys to Vercel). Then the owner, with notifications on and the UstaPlan app closed: from the customer link on a second phone, ask for a new date → a push "<Ad> yeni tarih istedi" arrives; tap it → the job opens; counter on the artisan phone, accept on the customer phone → "… önerdiğin saati kabul etti"; cancel → "… işi iptal etti · <sebep>". Each arrives once. If it works, mark M5.7 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.8** 🔑 (dispatcher: reminders, digest, retries incl. stuck `sending`, cleanup; migration `cron`; Vault secrets — approvals needed).
 
 ## Resume commands
 ```bash

@@ -1,7 +1,9 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { verifyCustomerToken } from "@/lib/customer-link";
 import { actionResponse, invalidLink, isSameOrigin, readJsonBody } from "@/lib/customer-api";
 import { istanbulDateTime } from "@/lib/domain/scheduling";
+import { deliverNotification } from "@/lib/push";
 
 const requestSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -39,9 +41,13 @@ export async function POST(request: Request, { params }: RouteContext<"/api/t/[t
   });
   if (error) return actionResponse({ ok: false, error: TRY_AGAIN }, 500);
 
-  switch ((data as { result?: string } | null)?.result) {
-    case "ok":
+  const outcome = data as { result?: string; request_id?: string } | null;
+  switch (outcome?.result) {
+    case "ok": {
+      const requestId = outcome.request_id;
+      if (requestId) after(() => deliverNotification(verified.ownerId, `request:${requestId}`));
       return actionResponse({ ok: true });
+    }
     case "link_invalid":
       return invalidLink();
     case "invalid_transition":

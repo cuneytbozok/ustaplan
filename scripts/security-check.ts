@@ -8,7 +8,9 @@
  * customer photo upload/delete (Origin, bytes, size, limits, ownership, job
  * state, events, daily notification). M5.3: reschedule (RPC privileges,
  * Origin, link checks, request → counter → accept swap, withdraw, idempotency,
- * cross-user respond). Extended in M5.9.
+ * cross-user respond). M5.7: immediate pushes are claimed and processed once
+ * after the response (the fixture device is fake, so they end as failed with a
+ * retry time). Extended in M5.9.
  *
  *   npm run security-check
  *
@@ -483,6 +485,20 @@ async function main() {
         return { status: response.status, body: await response.text() };
       };
       const ask = { date: istanbulDateKey(new Date(), 3), time: "10:15", note: "sec-check" };
+      // Immediate pushes run in after(): wait until the notification left "pending"/"sending".
+      const pushState = async (category: string, dedupeKey?: string) => {
+        for (let i = 0; i < 20; i++) {
+          let query = admin.from("notifications").select("push_status, push_attempts, push_next_attempt_at").eq("job_id", ids.job).eq("category", category);
+          if (dedupeKey) query = query.eq("dedupe_key", dedupeKey);
+          const { data } = await query;
+          const rows = (data ?? []) as { push_status: string; push_attempts: number; push_next_attempt_at: string | null }[];
+          if (rows.length && rows.every((r) => !["pending", "sending"].includes(r.push_status))) return rows;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        return null;
+      };
+      const pushedOnce = (rows: Awaited<ReturnType<typeof pushState>>) =>
+        Boolean(rows?.length === 1 && rows[0].push_status === "failed" && rows[0].push_attempts === 1 && rows[0].push_next_attempt_at);
       const openRequests = async () =>
         ((await admin.from("appointment_requests").select("id, status, appointment_id, counter_starts_at").eq("job_id", ids.job).in("status", ["pending_artisan", "pending_customer"])).data ?? []) as
           { id: string; status: string; appointment_id: string; counter_starts_at: string | null }[];
@@ -500,7 +516,9 @@ async function main() {
       record("one open request (the fixture request was replaced)", open.length === 1 && open[0].status === "pending_artisan" && open[0].id !== ids.request, JSON.stringify(open));
       record("current visit untouched by the request", JSON.stringify(await scheduledVisits()) === JSON.stringify(before3), "visits changed");
       const requested = await admin.from("notifications").select("push_status").eq("job_id", ids.job).eq("category", "reschedule_requested");
-      record("reschedule_requested notification with pending push", requested.data?.length === 1 && requested.data[0].push_status === "pending", JSON.stringify(requested.data));
+      record("reschedule_requested notification queued for push", requested.data?.length === 1 && requested.data[0].push_status !== "none", JSON.stringify(requested.data));
+      const requestPush = await pushState("reschedule_requested");
+      record("reschedule push processed once after the response (fake device → failed, retry set)", pushedOnce(requestPush), JSON.stringify(requestPush));
       record("request_created event by link_holder", ((await admin.from("job_events").select("actor_type").eq("job_id", ids.job).eq("event_type", "request_created")).data ?? []).some((e) => e.actor_type === "link_holder"), "no event");
       record("customer page shows the pending request", (await get(`/t/${current}`)).body.includes("isteğiniz ustanıza iletildi"), "not shown");
       record("repeat request → 200, still one open", (await json(`/api/t/${current}/reschedule`, "POST", ask)).status === 200 && (await openRequests()).length === 1, "duplicated");
@@ -525,6 +543,8 @@ async function main() {
           Date.parse((newVisit?.data as { starts_at: string }).starts_at) === Date.parse(later(72)), JSON.stringify({ swapped: swapped.data, newVisit: newVisit?.data }));
       const countAccepted = async () => (await admin.from("notifications").select("id", { count: "exact", head: true }).eq("job_id", ids.job).eq("category", "counter_accepted")).count;
       record("counter_accepted notification once", (await countAccepted()) === 1, `${await countAccepted()}`);
+      const acceptPush = await pushState("counter_accepted");
+      record("counter_accepted push processed once", pushedOnce(acceptPush), JSON.stringify(acceptPush));
       record("repeat accept → 200, nothing duplicated", (await json(`/api/t/${current}/reschedule/accept`, "POST", { requestId: pendingId })).status === 200 && (await countAccepted()) === 1, "duplicated");
 
       record("second request → 200", (await json(`/api/t/${current}/reschedule`, "POST", { ...ask, time: "11:30" })).status === 200, "refused");
@@ -573,6 +593,13 @@ async function main() {
       const bSees = await b.client.from("notifications").select("id").eq("job_id", ids.job);
       expectNoRows("B cannot see A's cancel notification", bSees);
       const page2 = await get(`/t/${current}`);
+      // By now the fake device has failed 5 times and is gone, so "skipped" is right too.
+      const cancelPush = await pushState("customer_cancelled", `cancel:${ids.job}`);
+      record("customer_cancelled push processed once (repeat cancel didn't resend)",
+        cancelPush?.length === 1 && ["failed", "skipped"].includes(cancelPush[0].push_status) && cancelPush[0].push_attempts === 1, JSON.stringify(cancelPush));
+      const fixtureDevice = await admin.from("push_subscriptions").select("failure_count").eq("id", ids.subscription).maybeSingle();
+      const failures = (fixtureDevice.data as { failure_count: number } | null)?.failure_count;
+      record("failed sends counted on the fake device (removed at the 5th)", failures === undefined || failures >= 3, JSON.stringify(fixtureDevice.data));
       record("cancel closed the open reschedule request", (await openRequests()).length === 0, "request still open");
       record("reschedule on a cancelled job → 409", (await json(`/api/t/${current}/reschedule`, "POST", ask)).status === 409, "accepted");
       record("cancelled job page offers no cancel button", page2.status === 200 && !page2.body.includes("İşi iptal et"), "button still shown");

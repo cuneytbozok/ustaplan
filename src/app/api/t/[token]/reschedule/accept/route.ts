@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { verifyCustomerToken } from "@/lib/customer-link";
 import { actionResponse, invalidLink, isSameOrigin, readJsonBody } from "@/lib/customer-api";
+import { deliverNotification } from "@/lib/push";
 
 const schema = z.object({ requestId: z.uuid() });
 const CHANGED = "Randevu bilgisi değişmiş. Sayfayı yenileyip tekrar deneyin.";
@@ -27,7 +29,10 @@ export async function POST(request: Request, { params }: RouteContext<"/api/t/[t
   if (error) return actionResponse({ ok: false, error: "İşlem tamamlanamadı. Lütfen tekrar deneyin." }, 500);
 
   const result = (data as { result?: string } | null)?.result;
-  if (result === "ok") return actionResponse({ ok: true });
+  if (result === "ok") {
+    after(() => deliverNotification(verified.ownerId, `accepted:${parsed.data.requestId}`));
+    return actionResponse({ ok: true });
+  }
   if (result === "link_invalid") return invalidLink();
   if (result === "expired") return actionResponse({ ok: false, error: "Önerilen saat geçti. Lütfen yeni bir tarih isteyin." }, 409);
   return actionResponse({ ok: false, error: CHANGED }, 409);
