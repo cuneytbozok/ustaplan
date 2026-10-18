@@ -5,6 +5,7 @@ import { signOut } from "@/actions/auth";
 import { BackLink } from "@/components/common/back-link";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
+import { InstallGuide } from "@/components/pwa/install-guide";
 import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { getCurrentArtisan } from "@/lib/auth";
@@ -28,6 +29,10 @@ export default function SettingsPage() {
       <Section title="Şifre">
         <PasswordForm />
         <p className="mt-3 text-xs text-muted-foreground">Şifreni unutursan yöneticinle iletişime geç.</p>
+      </Section>
+
+      <Section title="Uygulamayı ana ekrana ekle">
+        <InstallGuide />
       </Section>
 
       <form action={signOut}>

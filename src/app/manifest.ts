@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 // Installed-app definition. scope "/" keeps every artisan page inside the
 // home-screen app (iOS otherwise opens other pages in an in-app browser).
-// Service worker, offline page and install guide come in M5.5.
+// Service worker (public/sw.js), offline page and the install guide in Ayarlar: M5.5.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",

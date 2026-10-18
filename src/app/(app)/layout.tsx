@@ -5,6 +5,7 @@ import { NavigationMarker } from "@/components/shell/navigation-marker";
 import { NewJobFab } from "@/components/shell/new-job-fab";
 import { AutoRefresh } from "@/components/common/auto-refresh";
 import { ListSkeleton } from "@/components/common/skeleton";
+import { PwaSetup } from "@/components/pwa/pwa-setup";
 import { getCurrentArtisan } from "@/lib/auth";
 
 /**
@@ -26,6 +27,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <NavigationMarker />
       </Suspense>
       <AutoRefresh />
+      <PwaSetup />
       <Suspense fallback={<BottomNavBar pathname={null} />}>
         <BottomNav />
       </Suspense>

@@ -3,17 +3,18 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.4** (inbox + auto-refresh) is complete: deployed (`35b317e`, `aad04ec`) and confirmed on the owner's phones. Next: **M5.5** (PWA `sw.js` + install guide), on the owner's instruction.
+**M5.5** (service worker, offline page, install guide) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1–M5.4 are complete.
 
 ## Last completed task
-**M5.4** (`35b317e`, `aad04ec`): bell with unread badge, `/bildirimler` (mark read, mark all, Geri), `lib/push/render.ts`, `AutoRefresh` (T-14) in the artisan shell and on the customer page.
+**M5.4** (`35b317e`, `aad04ec`, closed in `7ae9629`): inbox + auto-refresh, confirmed on the owner's phones.
 
 ## Current or interrupted task
-None.
+**M5.5 — In Progress (phone check pending).** Files: `public/sw.js`, `public/offline.html`, `src/components/pwa/pwa-setup.tsx`, `src/components/pwa/install-guide.tsx` (new); `next.config.ts` (`/sw.js` headers), `(app)/layout.tsx`, `ayarlar/page.tsx`, `manifest.ts` (comment).
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
 - **Freshness (T-14, owner 2026-10-18):** no Realtime; `AutoRefresh` refreshes on visibility/focus + every 30 s while visible, not while a sheet is open (sheets with `data-state="closed"` ignored) or a text field is focused. Push covers closed apps.
+- **Service worker (M5.5):** network-only navigations with an offline fallback, never caches HTML/API, ignores `/t/*`; push payload contract `{title, body, url, tag}` (url = same-origin path, tag = dedupe key). Registered only in production builds, so test PWA behaviour with `npm run build && npm run start` (`prod-check`), and unregister it in the pane afterwards.
 - **Inbox copy:** only `lib/push/render.ts` turns category + payload into text; M5.7 pushes must reuse it.
 - **Browser tests:** stale hidden copies of earlier pages can hold buttons with the same label; target the visible page (`find`/refs) and verify writes in the DB.
 - **Customer photos (M5.2):** route handlers with the admin client, no RPC (DATA_MODEL §4). Limits are counted from `job_media` and can overshoot by one or two under concurrency. The daily `customer_photo_added` item is insert-then-update on conflict (a lost increment under a race is accepted). Only JPEG is accepted; the browser always re-encodes to JPEG.
@@ -25,8 +26,8 @@ None.
 - **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
 - **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Tests executed (M5.4)
-security-check 235/235 on a production build (:3200); Vitest 31/31; typecheck, lint, build; local 375 px: auto-refresh on Bugün and the customer page, inbox open/mark read/mark all, refresh guard with an open sheet, closed link on refresh.
+## Tests executed (M5.5)
+Local production build: worker active at `/`, cache = offline page + icon only, offline fallback with the server stopped, `/t/*` untouched, `/sw.js` headers via curl, Ayarlar guide at 375 px; security-check 235/235; typecheck, lint, build.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
@@ -38,10 +39,10 @@ security-check 235/235 on a production build (:3200); Vitest 31/31; typecheck, l
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. The M5.4 close-out commit is local; push it with the next approved push.
+None after the M5.5 commit. Local commits not yet pushed: `7ae9629` and the M5.5 commit.
 
 ## Exact next action
-On "start the next task", do **M5.5**: `public/sw.js` per plan §9 (push handler shows the notification with `tag` = dedupe key, `notificationclick` focuses or opens the job, offline fallback page only, never caches HTML or API responses, ignores `/t/*`), its registration, and the install guide (iPhone "Ana Ekrana Ekle" steps, Android install) — manifest and icons already exist (M1.5, T-11). Check current Next.js PWA docs first. Run `npm run build` (service worker = significant change).
+Ask the owner to approve the push (deploys to Vercel). Then the owner: on the iPhone, open Ayarlar in Safari and follow the guide (Paylaş → Ana Ekrana Ekle), open the app from the icon and check Ayarlar now says it's installed; on Android, check the install button or menu steps; with the app installed, turn on airplane mode and open a page → the offline page, turn it off → the page comes back. If it works, mark M5.5 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.6** 🔑 (VAPID keys in Vercel need approval; push subscriptions, settings, test push).
 
 ## Resume commands
 ```bash
