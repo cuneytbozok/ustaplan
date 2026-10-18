@@ -13,6 +13,7 @@ None.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
+- **Freshness (T-14, owner 2026-10-18):** no Realtime; refresh on resume + interval while visible. Push covers closed apps.
 - **Browser tests:** stale hidden copies of earlier pages can hold buttons with the same label; target the visible page (`find`/refs) and verify writes in the DB.
 - **Customer photos (M5.2):** route handlers with the admin client, no RPC (DATA_MODEL §4). Limits are counted from `job_media` and can overshoot by one or two under concurrency. The daily `customer_photo_added` item is insert-then-update on conflict (a lost increment under a race is accepted). Only JPEG is accepted; the browser always re-encodes to JPEG.
 - **Customer cancel (M5.1):** already cancelled → `ok` with no change; completed → refused. The note stays on the job row only (not in events or notifications). A re-cancel after reopen re-arms the same `cancel:<job>` notification. No separate rate limit: cancel is self-limiting. Origin must equal `APP_BASE_URL` exactly, so a local server on another port needs a matching `APP_BASE_URL` (see `prod-check`).
@@ -39,7 +40,7 @@ Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, 
 None. The M5.3 close-out commit (with the empty-Randevu hint) is local; push it with the next approved push.
 
 ## Exact next action
-On "start the next task", do **M5.4**: the header bell with an unread badge and `/bildirimler` (the `notifications` rows with `in_inbox`, newest first, rendered from `category + payload` in `src/lib/push/render.ts`, link to the job, mark read via the `read_at` column grant; skeleton, empty state, error + retry). No migration planned.
+On "start the next task", do **M5.4**: the header bell with an unread badge and `/bildirimler` (the `notifications` rows with `in_inbox`, newest first, rendered from `category + payload` in `src/lib/push/render.ts`, link to the job, mark read via the `read_at` column grant; skeleton, empty state, error + retry) **plus auto-refresh (plan T-14)**: one client component that calls `router.refresh()` when the page becomes visible again and every ~30–60 s while visible (paused while a sheet is open or an input is focused), mounted in the artisan app shell and on `/t/[token]`. No migration, no new dependency.
 
 ## Resume commands
 ```bash
