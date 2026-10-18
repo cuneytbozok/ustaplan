@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.4** (inbox + auto-refresh) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1–M5.3 are complete.
+**M5.4** (inbox + auto-refresh) is complete: deployed (`35b317e`, `aad04ec`) and confirmed on the owner's phones. Next: **M5.5** (PWA `sw.js` + install guide), on the owner's instruction.
 
 ## Last completed task
-**M5.3** (`a3dd0f6`, closed in `057caee`): reschedule negotiation + FK fix, confirmed on the owner's phones.
+**M5.4** (`35b317e`, `aad04ec`): bell with unread badge, `/bildirimler` (mark read, mark all, Geri), `lib/push/render.ts`, `AutoRefresh` (T-14) in the artisan shell and on the customer page.
 
 ## Current or interrupted task
-**M5.4 — In Progress (phone check pending).** No migration. Files: `src/lib/push/render.ts`, `src/actions/notifications.ts`, `src/components/shell/inbox-bell.tsx`, `src/app/(app)/bildirimler/page.tsx`, `src/components/notifications/inbox-list.tsx`, `src/components/common/auto-refresh.tsx` (new); `shell/app-header.tsx`, `(app)/layout.tsx`, `t/[token]/page.tsx`.
+None.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
@@ -38,10 +38,10 @@ security-check 235/235 on a production build (:3200); Vitest 31/31; typecheck, l
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None after the M5.4 commit. Local commits not yet pushed: `057caee`, `7ab6a1d` and the M5.4 commit.
+None. The M5.4 close-out commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask the owner to approve the push (deploys to Vercel). Then the owner, with two phones: keep the installed app open on Bugün, send a date request / photo / cancel from the customer link and check the bell badge and Bugün update within ~30 s (and immediately after switching back to the app); open the bell, tap an item (opens the job, badge drops), mark all read; on the customer phone keep the link open while the artisan changes the visit and check it updates. If it works, mark M5.4 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.5** (PWA `sw.js` + install guide).
+On "start the next task", do **M5.5**: `public/sw.js` per plan §9 (push handler shows the notification with `tag` = dedupe key, `notificationclick` focuses or opens the job, offline fallback page only, never caches HTML or API responses, ignores `/t/*`), its registration, and the install guide (iPhone "Ana Ekrana Ekle" steps, Android install) — manifest and icons already exist (M1.5, T-11). Check current Next.js PWA docs first. Run `npm run build` (service worker = significant change).
 
 ## Resume commands
 ```bash
