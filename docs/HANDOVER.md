@@ -3,49 +3,39 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M4 is deployed** (`7b6416e`, production redeployed after adding `SHARE_LINK_SECRET` and `SUPABASE_SECRET_KEY` to Vercel). M4.5 is Completed; M4.3 + M4.4 wait only for the owner's second-phone check.
+**M4 is complete** (photos, voice notes, signed customer links, share sheet, `/gizlilik`, security-check v2), deployed and verified on the owner's phones. Next: **M5.1** 🔑 (migration `customer_cancel`), on the owner's instruction.
 
 ## Last completed task
-**M4.5**: customer-link, exposure, read-only and media-proxy checks in `scripts/security-check.ts`.
+**M4.3 + M4.4** (`ade1965`, `c198e9d`, deployed `7b6416e`): owner shared a link by WhatsApp, opened it on a second phone, regenerated it and confirmed the old one is dead. **M4.5** (`7b6416e`): security-check 148/148.
 
 ## Current or interrupted task
-M4.3 + M4.4: code done and committed (`ade1965`, `c198e9d`); only external steps remain.
+None.
 
-## Files changed (M4.3–M4.4, committed `ade1965`, `c198e9d`)
-`lib/share-link.ts`, `lib/public-job.ts`, `lib/customer-link.ts`, `app/t/[token]/page.tsx`, `app/t/gecersiz/page.tsx`, `app/t/not-found.tsx`, `app/api/t/[token]/media/[mediaId]/route.ts`, `proxy.ts` (token gate), `next.config.ts` (headers), `components/public/invalid-link.tsx`, `components/jobs/share-sheet.tsx`, `actions/share.ts`, `app/gizlilik/page.tsx`, `lib/domain/links.ts` (`shareMessage`), tests `share-link`, `public-dto`; `.claude/launch.json` (`prod-local` on 3100).
+## Key decisions (still relevant)
+- **Customer links:** token = `<jobId>.<base64url HMAC>` (`lib/share-link.ts`, pure). `proxy.ts` verifies `/t/:token` and rewrites every invalid link to static `/t/gecersiz` (`notFound()` at prerender → real 404, identical body); the page and the media proxy verify again. Only `CustomerJobView` (`lib/public-job.ts`) reaches the customer. The customer endpoints use the admin client, so production needs `SUPABASE_SECRET_KEY`.
+- **Security check:** needs a running **production** build for the link section: `npm run build && npm run start`, then `npm run security-check` (`next dev` adds debug output to error pages). An unreachable app is a FAIL.
+- **Media:** prepared in the browser (≤ 1600 px JPEG, no EXIF/GPS; lazy `heic2any`); the server rebuilds storage paths from the session and checks size + magic bytes before inserting `job_media`. Voice notes prefer `audio/mp4`.
+- **Forms/navigation:** every Server Action redirect uses `RedirectType.replace`; edit forms go back after `ok`; "Geri" uses history only after in-app navigation (`NavigationMarker`).
+- **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
+- **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Key decisions
-- **M4.5:** run the security check with a production server: `npm run build && npm run start` (port 3000), then `npm run security-check`. `next dev` puts debug output in error pages, so the identical-404 check only holds on a production build.
-- **M4.3:** real 404s for invalid links come from `proxy.ts` (streamed pages can't change status); it rewrites to static `/t/gecersiz` whose `notFound()` makes it a prerendered 404. Verified on a local production build only (`npm run start -- -p 3100`); dev mode differs.
-- **M4.2:** the recorder's own timer is the duration source (clamped 1–60 server-side); MP4 is preferred whenever supported so iPhone and most Chrome builds record the same container. Upload content types are the base MIME (`audio/mp4`, `audio/webm`, `audio/ogg`) because the bucket allowlist has no codec parameters. Browser tests: replace `navigator.mediaDevices.getUserMedia` with a Web Audio oscillator stream.
-- **M4.1:** the client never chooses the stored path for registration: `registerPhoto(jobId, mediaId)` rebuilds `<uid>/<job>/<media>.jpg`. Every prepared image is JPEG, so the server only accepts JPEG magic bytes for artisan uploads. Artisan photo uploads write no `job_events` (events are RPC/trigger-only); customer photos (M5.2) will. Test images can be generated with PIL (GPS EXIF) and `sips -s format heic` and served temporarily from `public/` (removed afterwards).
-- **M3.5:** "Takip gerekenler" = open jobs whose scheduled visits are all ended (overdue) or that have none; computed from one query (open jobs + embedded scheduled appointments). Quick "Yeniden planla"/"Randevu planla" link to the job with `?planla=` rather than duplicating the picker on Bugün. A delayed `scrollIntoView` is needed because the router scrolls to top after mount.
-- **Back navigation (M3.4, owner feedback):** "Geri" uses browser history only when this tab has navigated inside the app; otherwise the parent href. Every Server Action redirect uses `RedirectType.replace`; edit forms go back after `ok` (their actions call `refresh()` first, and the restored page showed fresh data). New pages with forms should follow the same pattern.
-- Note for browser tests: Next keeps earlier pages mounted but hidden, so `find`/DOM queries can return elements from hidden pages; filter by visibility.
-- **M3.4:** calendar state lives in the URL (`gorunum`, `tarih`), links use `replace`. Only `scheduled` visits are shown. Week rows group by the visit's Istanbul start day. Free gaps are computed in the page (display only), not in `scheduling.ts`.
-- **M3.3:** the picker posts Istanbul date/time/duration; the server converts (never trust the client's TZ). The conflict check is a read-only Server Action; it never blocks saving. Helpers that aren't actions live in `lib/` (every export of a `"use server"` file becomes an endpoint). Superseded visits are hidden in the UI; the history keeps the reschedule. The parent's `onConflictChange` is kept in a ref synced in an effect (the `react-hooks/refs` lint forbids writing refs during render).
-- **M3.2:** scheduling is pure; callers pass the artisan's `scheduled` appointments (plain RLS select, `starts_at < end and ends_at > start`, plus that day and the next for the suggestion). `suggestSlot` takes `now` so tests are deterministic; the next-day fallback also searches until 20:00 and returns null if full. Istanbul conversions go through `TZDate`, so results don't depend on the server's TZ.
-- **M3.1 (T-13):** idempotency of `save_appointment` = same job + same times returns the existing (or replacement) appointment; past times allowed; derived J2/J3 status changes write no separate event. Lock order: job, then appointment.
-- M2.4: edit = plain RLS update, history via `jobs_log_changes`; status via `change_job_status` + `refresh()`; the complete/cancel confirmation lists scheduled visits with `ends_at > now`.
-- `Date.now()` in a Server Component trips the `react-hooks/purity` lint; use helpers in `lib/domain/time.ts` (after `connection()`, which `createClient()` does).
-- Earlier lessons still apply: each page wraps its reads in its own `<Suspense>`; render `NotFoundState` inline instead of `notFound()`; every artisan action starts with `actionContext()`.
-
-## Tests executed
-`npm test` 30/30; security-check 148/148 against `npm run start` (147/148 against `next dev`, see Key decisions); milestone `npm run build`; local 360 px flows for M4.3/M4.4 (see PROGRESS).
+## Tests executed (M4)
+Vitest 30/30 (share-link, public-dto, scheduling); security-check 148/148 on a production build; live checks on `ustaplan.vercel.app` (identical 404s, headers); owner's iPhone (HEIC photo stored without GPS, voice notes) and second-phone link test.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
 - Supabase advisor: leaked-password protection off (owner decision before the pilot).
-- KVKK legal review open; blocks only M6.3.
-- Test data on dev (C, all fake): Kombi bakımı (unplanned, no visit), Petek temizliği (in progress, ₺1.800, visit 19 Eki 10:00), "Batarya değişimi (test)" (visits 18 Eki 15:00 and 19 Eki 10:00, clashing on purpose), "Klima montajı (test)" (in progress, visit 17 Eki done), "Geri testi (test)" (completed). Customer note "Akşam arayın (test)".
+- KVKK legal review of `/gizlilik` and cross-border transfer: open, blocks only M6.3.
+- `APP_BASE_URL` exists only for Production on Vercel, so preview deployments can't build share links (the sheet says so).
+
+## Environment
+Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. Unpushed: everything since `49d01db` (M4.2 close-out, M4.3, M4.4, M4.5, handovers).
+None. The M4 close-out commit is local; push it with the next approved push.
 
 ## Exact next action
-1. Owner phone check: on a job, "Müşteriyle paylaş" → WhatsApp → open the link on a second phone; regenerate → the old link shows "Bu bağlantı geçersiz veya kapatılmış."; open "Kişisel verileriniz" from the page footer.
-2. On OK: mark M4.3 and M4.4 Completed (**M4 complete**), commit. Then M5.1 🔑 on instruction.
-- Vercel env now: public Supabase URL/key, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview), `SUPABASE_SECRET_KEY` (Production, dev project). The local folder is linked (`.vercel/`, git-ignored); `vercel link` also appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed.
+On "start the next task", do **M5.1** 🔑: migration `customer_cancel` with `public_cancel_job(job_id, share_version, reason, note)` (`service_role` only; locks the job, re-checks `share_enabled`/version, J6 cascade, inserts the `customer_cancelled` notification), `POST /api/t/[token]/cancel` (Origin check, zod, rate limit, `link_holder` event) and the CancelSheet on the customer page (reason required, note required for "Diğer", confirmation). Test in PGlite, then **ask before `supabase db push`**; regenerate types; re-run security-check.
 
 ## Resume commands
 ```bash
@@ -55,5 +45,5 @@ cd /Users/cuneytbozok/Documents/Projeler/Ustaplan
 git status && git log --oneline -15
 ```
 ```bash
-npm ci && npm run typecheck && npm run lint
+npm ci && npm run typecheck && npm run lint && npm test
 ```
