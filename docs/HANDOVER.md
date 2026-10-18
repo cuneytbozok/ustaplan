@@ -3,17 +3,18 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.3** (reschedule negotiation) is complete: on dev, deployed (`a3dd0f6`) and confirmed on the owner's phones. Next: **M5.4** (inbox: bell, badge, `/bildirimler`), on the owner's instruction.
+**M5.4** (inbox + auto-refresh) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1–M5.3 are complete.
 
 ## Last completed task
-**M5.3** (`a3dd0f6`): migrations `reschedule` + `appointment_fk_deferred`, customer `RescheduleSection`, artisan `RequestCard` on İş detayı and Bugün, security-check 235/235. Follow-up in the close-out commit: a hint on the empty Randevu card of an open job (customers can't propose a first time; out of scope by spec §5.2).
+**M5.3** (`a3dd0f6`, closed in `057caee`): reschedule negotiation + FK fix, confirmed on the owner's phones.
 
 ## Current or interrupted task
-None.
+**M5.4 — In Progress (phone check pending).** No migration. Files: `src/lib/push/render.ts`, `src/actions/notifications.ts`, `src/components/shell/inbox-bell.tsx`, `src/app/(app)/bildirimler/page.tsx`, `src/components/notifications/inbox-list.tsx`, `src/components/common/auto-refresh.tsx` (new); `shell/app-header.tsx`, `(app)/layout.tsx`, `t/[token]/page.tsx`.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
-- **Freshness (T-14, owner 2026-10-18):** no Realtime; refresh on resume + interval while visible. Push covers closed apps.
+- **Freshness (T-14, owner 2026-10-18):** no Realtime; `AutoRefresh` refreshes on visibility/focus + every 30 s while visible, not while a sheet is open (sheets with `data-state="closed"` ignored) or a text field is focused. Push covers closed apps.
+- **Inbox copy:** only `lib/push/render.ts` turns category + payload into text; M5.7 pushes must reuse it.
 - **Browser tests:** stale hidden copies of earlier pages can hold buttons with the same label; target the visible page (`find`/refs) and verify writes in the DB.
 - **Customer photos (M5.2):** route handlers with the admin client, no RPC (DATA_MODEL §4). Limits are counted from `job_media` and can overshoot by one or two under concurrency. The daily `customer_photo_added` item is insert-then-update on conflict (a lost increment under a race is accepted). Only JPEG is accepted; the browser always re-encodes to JPEG.
 - **Customer cancel (M5.1):** already cancelled → `ok` with no change; completed → refused. The note stays on the job row only (not in events or notifications). A re-cancel after reopen re-arms the same `cancel:<job>` notification. No separate rate limit: cancel is self-limiting. Origin must equal `APP_BASE_URL` exactly, so a local server on another port needs a matching `APP_BASE_URL` (see `prod-check`).
@@ -24,8 +25,8 @@ None.
 - **Cache Components:** each page keeps request-time reads in its own `<Suspense>`; `Date.now()` only via `lib/domain/time.ts` / `scheduling.ts` helpers; `/t/[token]` uses `export const instant = false`.
 - **Browser tests:** Next keeps earlier pages mounted but hidden, so filter DOM queries by visibility, and re-take screenshots (they can lag after navigation).
 
-## Tests executed (M5.3)
-PGlite 73/73 (reschedule) + 75/75 with the FK fix (job and account delete); security-check 235/235 on a production build (:3200); Vitest 31/31; typecheck, lint, build; local 375 px request → counter → accept, approve, reject smoke.
+## Tests executed (M5.4)
+security-check 235/235 on a production build (:3200); Vitest 31/31; typecheck, lint, build; local 375 px: auto-refresh on Bugün and the customer page, inbox open/mark read/mark all, refresh guard with an open sheet, closed link on refresh.
 
 ## Known bugs and blockers
 - `npm audit`: 5 high in the dev-only ESLint chain (accepted).
@@ -37,10 +38,10 @@ PGlite 73/73 (reschedule) + 75/75 with the FK fix (job and account delete); secu
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None. The M5.3 close-out commit (with the empty-Randevu hint) is local; push it with the next approved push.
+None after the M5.4 commit. Local commits not yet pushed: `057caee`, `7ab6a1d` and the M5.4 commit.
 
 ## Exact next action
-On "start the next task", do **M5.4**: the header bell with an unread badge and `/bildirimler` (the `notifications` rows with `in_inbox`, newest first, rendered from `category + payload` in `src/lib/push/render.ts`, link to the job, mark read via the `read_at` column grant; skeleton, empty state, error + retry) **plus auto-refresh (plan T-14)**: one client component that calls `router.refresh()` when the page becomes visible again and every ~30–60 s while visible (paused while a sheet is open or an input is focused), mounted in the artisan app shell and on `/t/[token]`. No migration, no new dependency.
+Ask the owner to approve the push (deploys to Vercel). Then the owner, with two phones: keep the installed app open on Bugün, send a date request / photo / cancel from the customer link and check the bell badge and Bugün update within ~30 s (and immediately after switching back to the app); open the bell, tap an item (opens the job, badge drops), mark all read; on the customer phone keep the link open while the artisan changes the visit and check it updates. If it works, mark M5.4 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.5** (PWA `sw.js` + install guide).
 
 ## Resume commands
 ```bash

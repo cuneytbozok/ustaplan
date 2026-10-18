@@ -3,6 +3,7 @@ import { BottomNav, BottomNavBar } from "@/components/shell/bottom-nav";
 import { AppHeader } from "@/components/shell/app-header";
 import { NavigationMarker } from "@/components/shell/navigation-marker";
 import { NewJobFab } from "@/components/shell/new-job-fab";
+import { AutoRefresh } from "@/components/common/auto-refresh";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { getCurrentArtisan } from "@/lib/auth";
 
@@ -24,6 +25,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <NewJobFab />
         <NavigationMarker />
       </Suspense>
+      <AutoRefresh />
       <Suspense fallback={<BottomNavBar pathname={null} />}>
         <BottomNav />
       </Suspense>

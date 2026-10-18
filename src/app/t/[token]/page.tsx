@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
+import { AutoRefresh } from "@/components/common/auto-refresh";
 import { CancelSheet } from "@/components/public/cancel-sheet";
 import { CustomerPhotos } from "@/components/public/customer-photos";
 import { RescheduleSection } from "@/components/public/reschedule-section";
@@ -100,6 +101,8 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
       ) : null}
 
       {capabilities.cancel ? <CancelSheet token={token} /> : null}
+
+      <AutoRefresh />
 
       <footer className="mt-auto pt-6 text-center text-xs text-muted-foreground">
         <Link href="/gizlilik" className="underline underline-offset-2">

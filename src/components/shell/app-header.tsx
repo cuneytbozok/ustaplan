@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getCurrentArtisan } from "@/lib/auth";
+import { InboxBell } from "./inbox-bell";
 import { ProfileMenu } from "./profile-menu";
 
 export function AppHeader() {
@@ -12,9 +13,14 @@ export function AppHeader() {
           </span>
           <span className="text-lg font-bold tracking-tight text-ink">UstaPlan</span>
         </div>
-        <Suspense fallback={<div className="size-11 rounded-xl border border-border bg-surface" aria-hidden />}>
-          <HeaderProfile />
-        </Suspense>
+        <div className="flex items-center gap-2">
+          <Suspense fallback={<div className="size-11 rounded-xl border border-border bg-surface" aria-hidden />}>
+            <InboxBell />
+          </Suspense>
+          <Suspense fallback={<div className="size-11 rounded-xl border border-border bg-surface" aria-hidden />}>
+            <HeaderProfile />
+          </Suspense>
+        </div>
       </div>
     </header>
   );
