@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.2** (customer photo upload/delete) is implemented and verified locally; it waits for the owner's phone check on the deployed URL, which needs an approved push. M5.1 is complete.
+**M5.2** (customer photo upload/delete) is complete: deployed (`00c6ceb`) and confirmed on the owner's phone. Next: **M5.3** 🔑 (migration `reschedule`), on the owner's instruction.
 
 ## Last completed task
-**M5.1** (`733c87a`, closed in `4288ceb`): customer cancel, confirmed on the owner's phone.
+**M5.2** (`00c6ceb`): `POST/DELETE /api/t/[token]/photos`, `CustomerPhotos` on the customer page, daily `customer_photo_added` inbox item, security-check 194/194. No migration.
 
 ## Current or interrupted task
-**M5.2 — In Progress (phone check pending).** No migration. Files: `src/app/api/t/[token]/photos/route.ts` (POST), `src/app/api/t/[token]/photos/[mediaId]/route.ts` (DELETE), `src/components/public/customer-photos.tsx` (new); `t/[token]/page.tsx`, `lib/customer-api.ts` (`UUID`), media proxy route, `lib/domain/time.ts` (`istanbulDateKey`), `job-timeline.tsx`, `security-check.ts`, plan §5, DATA_MODEL §4.
+None.
 
 ## Key decisions (still relevant)
 - **Customer photos (M5.2):** route handlers with the admin client, no RPC (DATA_MODEL §4). Limits are counted from `job_media` and can overshoot by one or two under concurrency. The daily `customer_photo_added` item is insert-then-update on conflict (a lost increment under a race is accepted). Only JPEG is accepted; the browser always re-encodes to JPEG.
@@ -34,10 +34,10 @@ security-check 194/194 against a production build on :3200; typecheck, lint, Vit
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None after the M5.2 commit. Local commits not yet pushed: `4288ceb` and the M5.2 commit.
+None. The M5.2 close-out commit is local; push it with the next approved push.
 
 ## Exact next action
-Ask the owner to approve the push (deploys to Vercel). Then the owner, on a phone: open a job link, add a photo from the camera (and one from the gallery; HEIC on iPhone), check it appears on the job page for the artisan, delete it from the link, and check an artisan photo has no delete button. If it works, mark M5.2 Completed in PROGRESS (status, log row) and stop. Next task after that: **M5.3** 🔑 (migration `reschedule`, needs approval).
+On "start the next task", do **M5.3** 🔑: migration `reschedule` with `public_request_reschedule`, `public_withdraw_request`, `public_accept_counter` (service_role only, lock + share-version re-check, one open negotiation per appointment, ≤ 10 requests per day per job, notifications `reschedule_requested` / `counter_accepted` / `request_withdrawn`) and the artisan's `respond_to_request` (approve/reject/counter with the atomic swap, plan §8); customer UI on `/t/[token]` and the artisan UI (job page + Bugün pending requests). Test in PGlite, then **ask before `supabase db push`**; regenerate types; extend and re-run security-check.
 
 ## Resume commands
 ```bash
