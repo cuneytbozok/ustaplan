@@ -3,18 +3,19 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M4.2 is In Progress**: voice notes (record ≤ 60 s, list, play, delete) work locally. Remaining: push (approval) + record/play on the owner's phone, then close it.
+**M4.5 is In Progress (not started in code)**. M4.3 + M4.4 are done locally and committed, waiting only for the phone check. Owner asked to finish M4.3–M4.5 in one go.
 
 ## Last completed task
-**M4.1** (`96a7b06`): artisan photos; owner's iPhone photo stored at 492 KB without GPS.
+**M4.2** (`49d01db`): voice notes; owner verified on the phone.
 
 ## Current or interrupted task
-**M4.2**: committed locally, not pushed.
+**M4.5** `security-check.ts` v2: nothing written yet. Plan: add fixtures with a share link (sign with `SHARE_LINK_SECRET`), call the app over HTTP (`SECURITY_CHECK_BASE_URL`, default `http://localhost:3000`; FAIL if unreachable, never skip): valid 200; tampered/old-version/disabled/unknown → identical 404; media proxy: private photo and audio → 404, shared → 200, revoke → page and media 404 immediately; page HTML has no customer phone/address/note/estimate/private media id; GETs write nothing (compare `job_events`/`job_media` counts before/after); B can't toggle A's `share_enabled`/`share_version`.
 
-## Files changed (M4.2)
-New: `src/components/media/voice-notes.tsx`, `src/lib/media/voice-notes.ts`. Changed: `src/actions/media.ts` (`registerVoiceNote`; `deletePhoto` → `deleteMedia`), `photo-gallery.tsx` (uses `deleteMedia`), `isler/[id]/page.tsx` (Ses notları section).
+## Files changed (M4.3–M4.4, committed `ade1965`, `c198e9d`)
+`lib/share-link.ts`, `lib/public-job.ts`, `lib/customer-link.ts`, `app/t/[token]/page.tsx`, `app/t/gecersiz/page.tsx`, `app/t/not-found.tsx`, `app/api/t/[token]/media/[mediaId]/route.ts`, `proxy.ts` (token gate), `next.config.ts` (headers), `components/public/invalid-link.tsx`, `components/jobs/share-sheet.tsx`, `actions/share.ts`, `app/gizlilik/page.tsx`, `lib/domain/links.ts` (`shareMessage`), tests `share-link`, `public-dto`; `.claude/launch.json` (`prod-local` on 3100).
 
 ## Key decisions
+- **M4.3:** real 404s for invalid links come from `proxy.ts` (streamed pages can't change status); it rewrites to static `/t/gecersiz` whose `notFound()` makes it a prerendered 404. Verified on a local production build only (`npm run start -- -p 3100`); dev mode differs.
 - **M4.2:** the recorder's own timer is the duration source (clamped 1–60 server-side); MP4 is preferred whenever supported so iPhone and most Chrome builds record the same container. Upload content types are the base MIME (`audio/mp4`, `audio/webm`, `audio/ogg`) because the bucket allowlist has no codec parameters. Browser tests: replace `navigator.mediaDevices.getUserMedia` with a Web Audio oscillator stream.
 - **M4.1:** the client never chooses the stored path for registration: `registerPhoto(jobId, mediaId)` rebuilds `<uid>/<job>/<media>.jpg`. Every prepared image is JPEG, so the server only accepts JPEG magic bytes for artisan uploads. Artisan photo uploads write no `job_events` (events are RPC/trigger-only); customer photos (M5.2) will. Test images can be generated with PIL (GPS EXIF) and `sips -s format heic` and served temporarily from `public/` (removed afterwards).
 - **M3.5:** "Takip gerekenler" = open jobs whose scheduled visits are all ended (overdue) or that have none; computed from one query (open jobs + embedded scheduled appointments). Quick "Yeniden planla"/"Randevu planla" link to the job with `?planla=` rather than duplicating the picker on Bugün. A delayed `scrollIntoView` is needed because the router scrolls to top after mount.
@@ -38,10 +39,12 @@ M4.2: local 360 px record/play/discard/delete/60 s-cap flows with a synthetic to
 - Test data on dev (C, all fake): Kombi bakımı (unplanned, no visit), Petek temizliği (in progress, ₺1.800, visit 19 Eki 10:00), "Batarya değişimi (test)" (visits 18 Eki 15:00 and 19 Eki 10:00, clashing on purpose), "Klima montajı (test)" (in progress, visit 17 Eki done), "Geri testi (test)" (completed). Customer note "Akşam arayın (test)".
 
 ## Uncommitted changes
-None. Unpushed: the M4.1 close-out and the M4.2 commit.
+None. Unpushed: `ee5558d`, `ade1965`, `c198e9d` and this handover.
 
 ## Exact next action
-Ask the owner to approve `git push`, then they record a short voice note on a job (allow the microphone), play it back and delete one. On OK, mark M4.2 Completed and commit "M4.2: close task…". Then M4.3 (`share-link.ts` + DTO + `/t/[token]`) on instruction.
+1. Write M4.5 (above), run it against the dev server, commit.
+2. Milestone build, then ask the owner: approve adding `SHARE_LINK_SECRET` (new random ≥ 32 chars) to Vercel **and** `git push`.
+3. Owner phone check: share a link by WhatsApp, open on a second phone, regenerate → old link dies. Then close M4.3–M4.5 (M4 complete).
 
 ## Resume commands
 ```bash
