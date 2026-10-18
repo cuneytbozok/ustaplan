@@ -2,6 +2,7 @@
 
 import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
+import { ADMIN_HOME, hasAdminRole } from "@/lib/admin/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type SignInState = { ok: false; error: string; email: string } | null;
@@ -17,7 +18,7 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
   if (!parsed.success) return { ok: false, error: "E-posta adresini ve şifreni kontrol et.", email };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     const message =
       error.code === "invalid_credentials"
@@ -26,7 +27,7 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
     return { ok: false, error: message, email };
   }
 
-  redirect("/bugun", RedirectType.replace);
+  redirect(hasAdminRole(data.user.app_metadata) ? ADMIN_HOME : "/bugun", RedirectType.replace);
 }
 
 export async function signOut(formData?: FormData) {

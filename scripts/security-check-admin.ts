@@ -1,0 +1,132 @@
+/**
+ * Admin panel checks for scripts/security-check.ts (plan §4.1, M6.2–M6.3).
+ * Sessions are real @supabase/ssr cookies sent to the running app, so the
+ * proxy and the server gate are exercised exactly as in a browser. A
+ * temporary fake admin (role + TOTP enrolled here) is created and deleted.
+ */
+import { createHmac, randomBytes } from "node:crypto";
+import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+type Record = (name: string, ok: boolean, detail?: string) => void;
+
+export type AdminCheckContext = {
+  url: string;
+  publishableKey: string;
+  admin: SupabaseClient;
+  base: string;
+  tag: string;
+  record: Record;
+  artisanA: { email: string; password: string; id: string };
+};
+
+/** RFC 6238 code (SHA-1, 30 s, 6 digits) for a base32 secret. */
+export function totpCode(secret: string, at = Date.now()) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const char of secret.replace(/=+$/, "").toUpperCase()) bits += alphabet.indexOf(char).toString(2).padStart(5, "0");
+  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((byte) => parseInt(byte, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(at / 30_000)));
+  const hmac = createHmac("sha1", key).update(counter).digest();
+  const offset = hmac[hmac.length - 1] & 15;
+  return String((hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}
+
+/** A browser-like session: an ssr client whose cookies we can send to the app. */
+export function cookieSession(url: string, publishableKey: string) {
+  const jar = new Map<string, string>();
+  const client = createServerClient(url, publishableKey, {
+    cookies: {
+      getAll: () => [...jar].map(([name, value]) => ({ name, value })),
+      setAll: (cookies) => cookies.forEach(({ name, value }) => (value ? jar.set(name, value) : jar.delete(name))),
+    },
+  });
+  const cookie = () => [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
+  return { client, cookie };
+}
+
+export async function get(base: string, path: string, cookie?: string) {
+  const response = await fetch(`${base}${path}`, { redirect: "manual", cache: "no-store", headers: cookie ? { Cookie: cookie } : {} });
+  const body = await response.text();
+  const location = response.headers.get("location");
+  return { status: response.status, body, location: location ? new URL(location, base).pathname : null, headers: response.headers };
+}
+
+export async function adminPanelChecks(ctx: AdminCheckContext) {
+  const { url, publishableKey, admin, base, tag, record, artisanA } = ctx;
+  const panelPaths = ["/admin", "/admin/ustalar", "/admin/mfa"];
+
+  // ---- Anonymous ----
+  for (const path of panelPaths) {
+    const response = await get(base, path);
+    record(`admin: anon GET ${path} → login redirect, no panel content`,
+      response.status === 307 && response.location === "/giris" && !response.body.includes("Yönetim"), `${response.status} ${response.location}`);
+  }
+
+  // ---- Artisan A ----
+  const artisan = cookieSession(url, publishableKey);
+  const signIn = await artisan.client.auth.signInWithPassword({ email: artisanA.email, password: artisanA.password });
+  if (signIn.error) throw new Error(`Artisan A could not sign in for admin checks (${signIn.error.code})`);
+  for (const path of panelPaths) {
+    const response = await get(base, path, artisan.cookie());
+    record(`admin: artisan GET ${path} → 404, nothing about the panel`,
+      response.status === 404 && !response.body.includes("Yönetim"), `${response.status}`);
+  }
+  await artisan.client.auth.updateUser({ data: { role: "admin" } });
+  await artisan.client.auth.refreshSession();
+  const afterSelfGrant = await admin.auth.admin.getUserById(artisanA.id);
+  const stillArtisan = await get(base, "/admin", artisan.cookie());
+  record("admin: artisan can't grant itself the role (user_metadata only; still 404)",
+    afterSelfGrant.data.user?.app_metadata?.role !== "admin" && stillArtisan.status === 404, `${stillArtisan.status}`);
+  await artisan.client.auth.updateUser({ data: { role: null } });
+  await artisan.client.auth.signOut({ scope: "local" });
+
+  // ---- Temporary admin ----
+  const email = `${tag}-admin@ustaplan.test`;
+  const password = randomBytes(18).toString("base64url");
+  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, app_metadata: { role: "admin" } });
+  if (created.error || !created.data.user) throw new Error(`Temporary admin not created: ${created.error?.message}`);
+  const adminId = created.data.user.id;
+  try {
+    const session = cookieSession(url, publishableKey);
+    const adminSignIn = await session.client.auth.signInWithPassword({ email, password });
+    if (adminSignIn.error) throw new Error(`Temporary admin could not sign in (${adminSignIn.error.code})`);
+
+    for (const path of ["/admin", "/admin/ustalar", "/bugun", "/"]) {
+      const response = await get(base, path, session.cookie());
+      record(`admin: aal1 admin GET ${path} → code page redirect`, response.status === 307 && response.location === "/admin/mfa", `${response.status} ${response.location}`);
+    }
+    const mfaPage = await get(base, "/admin/mfa", session.cookie());
+    record("admin: aal1 admin sees only the enrollment step", mfaPage.status === 200 && mfaPage.body.includes("İki adımlı doğrulama") && !mfaPage.body.includes("Genel bakış"), `${mfaPage.status}`);
+
+    const enrolled = await session.client.auth.mfa.enroll({ factorType: "totp", friendlyName: tag });
+    if (enrolled.error || !enrolled.data) throw new Error(`TOTP enrollment failed: ${enrolled.error?.message}`);
+    const factorId = enrolled.data.id;
+    const secret = enrolled.data.totp.secret;
+    const wrong = await session.client.auth.mfa.challengeAndVerify({ factorId, code: totpCode(secret) === "000000" ? "111111" : "000000" });
+    record("admin: wrong TOTP code refused", Boolean(wrong.error), "accepted");
+    const stillAal1 = await get(base, "/admin", session.cookie());
+    record("admin: after a wrong code the panel is still closed", stillAal1.status === 307 && stillAal1.location === "/admin/mfa", `${stillAal1.status}`);
+
+    const verified = await session.client.auth.mfa.challengeAndVerify({ factorId, code: totpCode(secret) });
+    if (verified.error) throw new Error(`TOTP verification failed: ${verified.error.message}`);
+    const panel = await get(base, "/admin", session.cookie());
+    record("admin: aal2 admin opens the panel", panel.status === 200 && panel.body.includes("Genel bakış"), `${panel.status}`);
+    record("admin: panel responses are no-store + noindex",
+      (panel.headers.get("cache-control") ?? "").includes("no-store") && (panel.headers.get("x-robots-tag") ?? "").includes("noindex"),
+      `${panel.headers.get("cache-control")} / ${panel.headers.get("x-robots-tag")}`);
+    const artisanRoute = await get(base, "/bugun", session.cookie());
+    record("admin: artisan routes send the admin to the panel", artisanRoute.status === 307 && artisanRoute.location === "/admin", `${artisanRoute.status} ${artisanRoute.location}`);
+
+    // The admin has no profile: RLS gives its own session no artisan data at all.
+    const leaks = await Promise.all(
+      ["customers", "jobs", "job_media", "notifications", "profiles"].map(async (table) => (await session.client.from(table).select("id").limit(1)).data?.length ?? 0),
+    );
+    record("admin: its user-scoped session sees no artisan rows (RLS)", leaks.every((n) => n === 0), JSON.stringify(leaks));
+
+    await session.client.auth.signOut({ scope: "local" });
+  } finally {
+    await admin.auth.admin.deleteUser(adminId);
+  }
+}

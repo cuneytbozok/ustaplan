@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests",
     "admin:create-artisan": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/create-artisan.ts",
     "admin:reset-password": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/reset-password.ts",
+    "admin:create-admin": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/create-admin.ts",
     "security-check": "tsx --env-file-if-exists=.env.local --conditions=react-server scripts/security-check.ts"
   },
   "dependencies": {

@@ -15,7 +15,7 @@ A task is **Completed** only when it works, typecheck and lint pass, the smoke t
 | Active task | none |
 | Next task | **M6.2** (when the owner says "start the next task"). Still open: end-of-M5 phone checks D1–D7 with the owner |
 | Application code | Login/logout (M1.3), app shell (M1.4), Ayarlar + manifest (M1.5), customers + addresses (M1.6), Yeni iş (M2.2), İşler (M2.3), İş detayı (M2.4); DB `core` + `jobs` + `appointments` + `customer_cancel` + `reschedule` + `appointment_fk_deferred` + `cron` on dev |
-| Implementation tasks | 41 total · 35 completed · 6 remaining |
+| Implementation tasks | 41 total · 36 completed · 5 remaining |
 | Last updated | 2026-10-18 (M6.1) |
 
 ## Blockers and owner inputs
@@ -112,7 +112,7 @@ Plan v3.2 (owner, 2026-10-18): M6.1–M6.4 added for the owner-only admin panel;
 | ID | Task | Status | Verification / notes |
 | --- | --- | --- | --- |
 | M6.1 | Admin panel scope-change docs (spec v1.5, plan v3.2, CLAUDE.md, DATA_MODEL, README, setup/privacy docs) | Completed | Written: spec v1.5 (v1.5 note, roles row, new §2.1, AC20, §11 wording), plan v3.2 (header, §2 tree, §4 scripts + new §4.1, §10 security-check scope, M6 table renumbered, §11/§14 refs, decisions A-1…A-5), CLAUDE.md (scope, out-of-scope, auth/admin architecture, `/admin` route exception, admin privacy rule, M6.7), DATA_MODEL (admin account note: no schema change), README (versions, 41 tasks, planned panel), setup checklist (admin account + TOTP item), privacy doc (counts only, panel deactivation). Stale-reference grep for `v1.4`/`37 tasks`/old M6 numbers clean. Owner reviewed and approved the diff (2026-10-18); no code changed |
-| M6.2 🔑 | `requireAdmin()`, `/admin` shell, TOTP enroll/challenge, login redirects, `create-admin.ts`; admin account in dev (approval); security-check | Pending | |
+| M6.2 🔑 | `requireAdmin()`, `/admin` shell, TOTP enroll/challenge, login redirects, `create-admin.ts`; admin account in dev (approval); security-check | Completed (owner's own TOTP sign-in on the deployed URL deferred → D8) | `lib/admin/auth.ts`: `getAdminGate()` (getClaims → `app_metadata.role === "admin"` → `aal` = `aal2`; otherwise `mfa-enroll`/`mfa-verify` from verified factors) + `requireAdmin()` (404 / redirect to `/admin/mfa`); every admin page gates itself inside its own Suspense (pages render in parallel with layouts). **Proxy** (first gate, optimistic): signed-in non-admins get a real **404** for `/admin/*` (rewrite, nothing streamed); an admin without `aal2` is sent to `/admin/mfa` from every path; an aal2 admin on artisan routes / `/giris` / `/` goes to `/admin`. `signIn` sends admins to `/admin`; `getCurrentArtisan` redirects a profile-less admin instead of throwing. `/admin/mfa`: enrollment (server action `startTotpEnrollment` removes unfinished factors, `mfa.enroll` → QR + manual key) and code entry (`verifyTotp`: zod 6 digits, `challengeAndVerify`, aal2 cookie, redirect). Panel shell `(panel)/layout.tsx` (header: wordmark + "Yönetim", tabs Genel bakış / Ustalar, Çıkış yap) and a first overview (totals). `next.config.ts`: `/admin` no-store, no-referrer, noindex. `scripts/create-admin.ts` (`npm run admin:create-admin -- --email …`): creates the single admin (no profile, role in `app_metadata`), refuses an artisan email or a second admin, `--reset-mfa` removes factors. **Browser (dev server, fake test admin):** artisan → 404 on `/admin` and `/admin/ustalar` (status 404); admin login → `/admin/mfa`; QR + key shown; wrong code → "Kod hatalı ya da süresi geçmiş."; correct code → panel; artisan route → code page before aal2; logout → login → code challenge → panel. **security-check 276/276** against a production build (:3200), 18 new (`scripts/security-check-admin.ts`, real ssr cookies over HTTP: anon redirect; artisan 404 on three paths; self-granted role ignored; aal1 admin redirected from 4 paths; enrollment-only page; wrong TOTP refused and panel still closed; aal2 opens the panel; no-store + noindex; artisan routes → panel; admin session sees no rows in 5 tables). typecheck, lint, build pass. **Not created:** the owner's own admin account (needs the owner's email and the authenticator on their phone; see D8) |
 | M6.3 | Ustalar: list, detail, create / reset / deactivate / reactivate; shared `lib/admin/accounts.ts`; security-check | Pending | |
 | M6.4 | Genel bakış: figures, 12-week trend, active artisans, system health; build + deploy (approval) | Pending | |
 | M6.5 | Full mobile smoke pass + critical fixes | Pending | |
@@ -121,7 +121,7 @@ Plan v3.2 (owner, 2026-10-18): M6.1–M6.4 added for the owner-only admin panel;
 
 ---
 
-## Deferred owner phone checks (run at the end of M5)
+## Deferred owner checks (D1–D7: end of M5 on the phones; D8+: admin panel)
 The owner chose (2026-10-18) to test these together once M5 is finished. Each needs notifications on, the app closed, and the customer link open on a second phone.
 
 | # | From | Check | Expected |
@@ -133,6 +133,7 @@ The owner chose (2026-10-18) to test these together once M5 is finished. Each ne
 | D5 | M5.7 / T-15 | Ask for a date, approve it; tap the old notification | Banner: the request was accepted, with the new time |
 | D6 | M5.8 | Plan a visit at least 1 h ahead (created more than an hour before it starts), app closed | "1 saat sonra randevun var · <saat> · <müşteri> · <iş>" arrives about an hour before (±5 min), once; tap opens the job |
 | D7 | M5.8 | Next morning after 08:00 Istanbul, with something to do that day | One "Günün özeti" push (visits / requests / follow-ups); tap opens Bugün; no second one that day |
+| D8 | M6.2 | Owner's admin account in dev: `npm run admin:create-admin -- --email <your email>` (prints a temporary password once); sign in on the deployed URL at `/giris`, scan the QR with an authenticator app, enter the code | The panel opens; after logout + login it asks for the code again |
 
 ## Completed task log
 | Date | Task | Commit | Evidence |

@@ -13,6 +13,9 @@
  * retry time). v3 (M5.9): dispatcher auth (missing/wrong bearer, GET), and
  * concurrent customer actions: two date requests at once, accept vs withdraw,
  * double accept, double cancel — each ends in one consistent outcome.
+ * M6.2: admin panel (scripts/security-check-admin.ts): anon/artisan locked
+ * out, no self-granted role, aal1 admin only reaches the code page, wrong TOTP
+ * refused, aal2 opens the panel, no-store/noindex, admin session sees no rows.
  *
  *   npm run security-check
  *
@@ -32,6 +35,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { adminEnv, appEnv, cronEnv, shareLinkEnv, supabaseEnv } from "@/lib/env";
 import { createShareToken, signJobLink } from "@/lib/share-link";
 import { istanbulDateKey } from "@/lib/domain/scheduling";
+import { adminPanelChecks } from "./security-check-admin";
 
 type Client = SupabaseClient;
 type Result = { data: unknown; error: { code?: string; message: string } | null };
@@ -724,6 +728,15 @@ async function main() {
         !(await visitsOf(ids.dJob)).some((v) => v.status === "scheduled" && Date.parse(v.starts_at) > Date.now()) &&
           !(await requestsOf(ids.dJob)).some((r) => ["pending_artisan", "pending_customer"].includes(r.status)),
         "left open");
+    }
+
+    // ---- Admin panel (M6.2): proxy + server gate, role, TOTP, RLS for the admin ----
+    {
+      const base = (process.env.SECURITY_CHECK_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+      await adminPanelChecks({
+        url, publishableKey, admin, base, tag, record,
+        artisanA: { email: process.env.TEST_ARTISAN_A_EMAIL ?? "", password: process.env.TEST_ARTISAN_A_PASSWORD ?? "", id: a.id },
+      });
     }
   } finally {
     // ---- Cleanup (cascades remove appointments, requests, media rows, events, notifications) ----

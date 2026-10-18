@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
-  // Customer links and the privacy notice: never cached, no referrer, not indexed (plan §5).
+  // Customer links, the privacy notice and the admin panel: never cached, no referrer, not indexed (plan §5, §4.1).
   async headers() {
     const headers = [
       { key: "Cache-Control", value: "no-store" },
@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
       { key: "X-Robots-Tag", value: "noindex, nofollow" },
     ];
     return [
-      ...["/t/:path*", "/api/t/:path*", "/gizlilik"].map((source) => ({ source, headers })),
+      ...["/t/:path*", "/api/t/:path*", "/gizlilik", "/admin", "/admin/:path*"].map((source) => ({ source, headers })),
       // Service worker (M5.5): always revalidated so updates reach installed apps; same-origin scripts only.
       {
         source: "/sw.js",

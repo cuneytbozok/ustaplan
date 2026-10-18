@@ -54,11 +54,13 @@ Admin (local only, needs `SUPABASE_SECRET_KEY` in `.env.local`; there is no sign
 ```bash
 npm run admin:create-artisan -- --email usta@ornek.com --name "Ahmet Usta"
 npm run admin:reset-password -- --email usta@ornek.com
+npm run admin:create-admin -- --email sahip@ornek.com          # the single /admin account
+npm run admin:create-admin -- --email sahip@ornek.com --reset-mfa   # lost authenticator
 ```
 
 Both print a generated temporary password once. Share it privately; the artisan changes it in Ayarlar.
 
-**Admin panel (planned, M6.2–M6.4, not built yet):** an owner-only panel at `/admin` (password + authenticator app) for the artisan list, creating artisans, temporary passwords, deactivation and high-level usage counts. See spec v1.5 §2.1 and plan §4.1.
+**Admin panel (`/admin`):** owner-only (password + authenticator app). Sign in at `/giris` with the admin account; the first visit sets up the authenticator. Artisan management and usage figures arrive in M6.3–M6.4. See spec v1.5 §2.1 and plan §4.1.
 
 Security check against the **dev** project (run after every applied migration; needs `SUPABASE_SECRET_KEY` and the fake `TEST_ARTISAN_*` accounts in `.env.local`):
 
