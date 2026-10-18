@@ -3,13 +3,13 @@
 _Rewritten at the end of every task. Last updated: 2026-10-18._
 
 ## State in one line
-**M5.8** 🔑 (dispatcher + cron) is deployed (`29d77dd`) and the `cron` migration is on dev (approved); it waits for the owner to store the two **Vault secrets**, then for proof that the 5-minute schedule calls the endpoint. Phone checks D1–D7 are deferred to the end of M5 (PROGRESS).
+**M5.8** is complete: dispatcher deployed (`29d77dd`), `cron` migration on dev, Vault secrets stored by the owner, first scheduled call returned 200 (18:30 Istanbul). Next: **M5.9** (security-check v3). M5 closes only after the deferred phone checks **D1–D7** (PROGRESS) pass.
 
 ## Last completed task
-**M5.7** (`719d54a`, `c3ea325`): immediate pushes + T-15 stale-notification fixes.
+**M5.8** (`29d77dd`): `/api/internal/dispatch`, reminders, digest, retries/lease, cleanup, `ustaplan-dispatch` every 5 min.
 
 ## Current or interrupted task
-**M5.8 — In Progress.** Files: `src/app/api/internal/dispatch/route.ts`, `src/lib/dispatch.ts`, `src/lib/domain/follow-ups.ts`, `supabase/migrations/20261018151856_cron.sql`, `scripts/vault-secrets.sql.example` (new); `src/lib/push.ts` (claim/lease/sendDue), `render.ts`, `target.ts`, `bugun/page.tsx`.
+None.
 
 ## Key decisions (still relevant)
 - **Reschedule (M5.3):** the customer always negotiates the job's next appointment; a new request replaces the open one (also a counter) in one transaction; the swap lives only in the internal `reschedule_swap`. Artisan approve of a passed time → `expired`. The two appointment self-reference FKs are deferrable (checked at commit), otherwise job/account deletes fail after a swap.
@@ -42,10 +42,10 @@ Local production build: dispatcher auth; fixture run on dev (reminder rule, retr
 Vercel env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_BASE_URL` (Production), `SHARE_LINK_SECRET` (Production + Preview, separate values), `SUPABASE_SECRET_KEY` (Production, **dev** project). Local folder linked to the Vercel project (`.vercel/`, git-ignored); `vercel link` appends a `VERCEL_OIDC_TOKEN` to `.env.local`, which was removed. Test data on dev (C, fake): customer "Çağlar Öztürk" with several test jobs, photos and visits.
 
 ## Uncommitted changes
-None after the M5.8 tracker commit (pushed).
+None. The M5.8 close-out commit is local; push it with the next approved push.
 
 ## Exact next action
-Owner: Supabase dashboard (dev project) → SQL Editor → run `scripts/vault-secrets.sql.example` with `<APP_BASE_URL>` = `https://ustaplan.vercel.app` and `<CRON_SECRET>` = the `CRON_SECRET` value from `.env.local`. Then verify the schedule calls the endpoint (Supabase → Integrations → Cron → `ustaplan-dispatch` runs succeed, or Vercel runtime logs show POST /api/internal/dispatch every 5 min with 200). Then mark M5.8 Completed (phone checks D6–D7 stay in the deferred list) and stop. Next: **M5.9** (security-check v3: cancel/reschedule consistency, dispatcher auth).
+On "start the next task", do **M5.9**: extend `scripts/security-check.ts` (v3) per plan §12 — dispatcher auth (no/wrong bearer 401, GET 405, no-store; a real run with the secret only against a local production build), cancel/reschedule consistency (concurrent cancel vs. accept, double accept, request after cancel). Mind: any dispatcher run sends real pushes to subscribed dev devices. Then the end-of-M5 phone checks D1–D7 with the owner.
 
 ## Resume commands
 ```bash
