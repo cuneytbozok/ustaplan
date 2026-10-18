@@ -4,7 +4,9 @@
  * workflow-column denial. M2.1: job RPCs reject foreign data and anon.
  * v2 (M4.5): customer links over HTTP (identical 404s, revocation, rotation),
  * page exposure, read-only GETs, media proxy restrictions. M5.1: customer
- * cancel (RPC privileges, Origin, link checks, cascade, idempotency). Extended in M5.9.
+ * cancel (RPC privileges, Origin, link checks, cascade, idempotency). M5.2:
+ * customer photo upload/delete (Origin, bytes, size, limits, ownership, job
+ * state, events, daily notification). Extended in M5.9.
  *
  *   npm run security-check
  *
@@ -373,8 +375,84 @@ async function main() {
       const lowered = await admin.from("jobs").update({ share_version: 1 }).eq("id", ids.job).select("id");
       record("a regenerated link can't be revived (version can't go down)", Boolean(lowered.error), "version lowered");
 
-      // Customer cancel (M5.1): POST only from our origin, through a valid link.
+      // Customer photos (M5.2): upload and delete through the link.
       const current = createShareToken(secret, ids.job, 2);
+      const origin = appEnv().baseUrl;
+      const upload = async (token: string, bytes: Uint8Array, from: string | null = origin) => {
+        const body = new FormData();
+        body.append("photo", new Blob([bytes as BlobPart], { type: "image/jpeg" }), "photo.jpg");
+        const response = await fetch(`${base}/api/t/${token}/photos`, { method: "POST", redirect: "manual", body, headers: from ? { Origin: from } : {} });
+        return { status: response.status, body: await response.text() };
+      };
+      const remove = async (token: string, id: string, from: string | null = origin) => {
+        const response = await fetch(`${base}/api/t/${token}/photos/${id}`, { method: "DELETE", redirect: "manual", headers: from ? { Origin: from } : {} });
+        return { status: response.status, body: await response.text() };
+      };
+      const customerRows = async () =>
+        ((await admin.from("job_media").select("id, owner_user_id, storage_path, visibility, deleted_at, deleted_by, created_at").eq("job_id", ids.job).eq("origin", "customer").order("created_at")).data ?? []) as
+          { id: string; owner_user_id: string; storage_path: string; visibility: string; deleted_at: string | null; deleted_by: string | null }[];
+      const mediaEvents = async (type: string) =>
+        ((await admin.from("job_events").select("actor_type").eq("job_id", ids.job).eq("event_type", type)).data ?? []) as { actor_type: string }[];
+      const photoNotifications = async () =>
+        ((await admin.from("notifications").select("payload, read_at, push_status").eq("job_id", ids.job).eq("category", "customer_photo_added")).data ?? []) as
+          { payload: { count?: number }; read_at: string | null; push_status: string }[];
+      const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+      const big = new Uint8Array(2 * 1024 * 1024 + 1);
+      big.set(jpeg.slice(0, 3));
+
+      record("photo GET on the upload route is not allowed", (await get(`/api/t/${current}/photos`)).status === 405, "GET accepted");
+      record("upload from a foreign Origin → 403", (await upload(current, jpeg, "https://evil.example")).status === 403, "accepted");
+      record("upload without Origin → 403", (await upload(current, jpeg, null)).status === 403, "accepted");
+      record("upload through the old link → 404", (await upload(valid, jpeg)).status === 404, "accepted");
+      record("upload of non-JPEG bytes → 400", (await upload(current, png)).status === 400, "accepted");
+      record("upload over 2 MB → 413", (await upload(current, big)).status === 413, "accepted");
+      record("refused uploads stored nothing", (await customerRows()).length === 0, `${(await customerRows()).length} rows`);
+
+      const first = await upload(current, jpeg);
+      record("customer upload → 200", first.status === 200, `status ${first.status} ${first.body.slice(0, 80)}`);
+      const [row] = await customerRows();
+      record("customer photo row: shared, owned by A, under A's job folder",
+        Boolean(row) && row.visibility === "shared" && row.owner_user_id === a.id && row.storage_path.startsWith(`${a.id}/${ids.job}/`), JSON.stringify(row));
+      const stored = row ? await admin.storage.from("job-images").download(row.storage_path) : null;
+      record("customer photo object stored", Boolean(stored?.data), "object missing");
+      record("media_added event by link_holder", (await mediaEvents("media_added")).some((e) => e.actor_type === "link_holder"), "no event");
+      await upload(current, jpeg);
+      const notes = await photoNotifications();
+      record("two uploads → one inbox item with count 2, unread, no push",
+        notes.length === 1 && notes[0].payload.count === 2 && notes[0].read_at === null && notes[0].push_status === "none", JSON.stringify(notes));
+      const photoPage = await get(`/t/${current}`);
+      record("customer page shows the customer photos via the proxy", (await customerRows()).every((r) => photoPage.body.includes(`/api/t/${current}/media/${r.id}`)), "photo missing");
+
+      record("delete of an artisan photo through the link → 404", (await remove(current, ids.sharedMedia)).status === 404, "accepted");
+      const sharedStill = await admin.from("job_media").select("deleted_at").eq("id", ids.sharedMedia).single();
+      record("artisan photo untouched", (sharedStill.data as { deleted_at: string | null } | null)?.deleted_at === null, "deleted");
+      record("delete of B's photo through A's link → 404", (await remove(current, ids.bMedia)).status === 404, "accepted");
+      record("delete from a foreign Origin → 403", (await remove(current, row.id, "https://evil.example")).status === 403, "accepted");
+      record("delete through the old link → 404", (await remove(valid, row.id)).status === 404, "accepted");
+      const deleted = await remove(current, row.id);
+      record("customer deletes own photo → 200", deleted.status === 200, `status ${deleted.status}`);
+      const afterDelete = (await customerRows()).find((r) => r.id === row.id);
+      record("row soft-deleted by link_holder", Boolean(afterDelete?.deleted_at) && afterDelete?.deleted_by === "link_holder", JSON.stringify(afterDelete));
+      const gone = await admin.storage.from("job-images").download(row.storage_path);
+      record("object removed from storage", Boolean(gone.error), "object still there");
+      record("repeat delete → 200, one media_deleted event", (await remove(current, row.id)).status === 200 && (await mediaEvents("media_deleted")).length === 1, "duplicated");
+      record("deleted photo via proxy → 404", (await media(row.id, current)).status === 404, "served");
+
+      // Limits: ≤ 10 uploads per hour, ≤ 20 active customer photos (rows only; no objects needed).
+      const fakeRows = (n: number, createdAt: string) =>
+        Array.from({ length: n }, () => {
+          const id = randomUUID();
+          return { id, owner_user_id: a.id, job_id: ids.job, kind: "image", origin: "customer", visibility: "shared", storage_bucket: "job-images", storage_path: `${a.id}/${ids.job}/${id}.jpg`, mime_type: "image/jpeg", size_bytes: 10, created_at: createdAt };
+        });
+      await must("recent fake photos", admin.from("job_media").insert(fakeRows(8, new Date().toISOString())));
+      const hourly = await upload(current, jpeg);
+      record("11th upload within an hour → 429", hourly.status === 429, `status ${hourly.status}`);
+      await must("age fake photos", admin.from("job_media").update({ created_at: new Date(Date.now() - 7_200_000).toISOString() }).eq("job_id", ids.job).eq("origin", "customer"));
+      await must("old fake photos", admin.from("job_media").insert(fakeRows(12, new Date(Date.now() - 7_200_000).toISOString())));
+      const tooMany = await upload(current, jpeg);
+      record("upload with 20+ active customer photos → 429", tooMany.status === 429, `status ${tooMany.status}`);
+
+      // Customer cancel (M5.1): POST only from our origin, through a valid link.
       const post = async (token: string, body: unknown, origin: string | null = appEnv().baseUrl) => {
         const response = await fetch(`${base}/api/t/${token}/cancel`, {
           method: "POST",
@@ -413,9 +491,14 @@ async function main() {
       expectNoRows("B cannot see A's cancel notification", bSees);
       const page2 = await get(`/t/${current}`);
       record("cancelled job page offers no cancel button", page2.status === 200 && !page2.body.includes("İşi iptal et"), "button still shown");
+      record("upload on a cancelled job → 409", (await upload(current, jpeg)).status === 409, "accepted");
+      const live = (await customerRows()).find((r) => !r.deleted_at);
+      record("customer can still delete own photo on a cancelled job", Boolean(live) && (await remove(current, live!.id)).status === 200, "refused");
     }
   } finally {
     // ---- Cleanup (cascades remove appointments, requests, media rows, events, notifications) ----
+    const customerObjects = await admin.storage.from("job-images").list(`${a.id}/${ids.job}`);
+    await admin.storage.from("job-images").remove((customerObjects.data ?? []).map((o) => `${a.id}/${ids.job}/${o.name}`));
     await admin.storage.from("job-images").remove([objectPath, sharedPath, `${a.id}/${ids.job}/ctl.jpg`, `${a.id}/${ids.job}/b.jpg`, `${b.id}/${ids.job}/b.jpg`, `${a.id}/${ids.job}/anon.jpg`]);
     await admin.from("push_subscriptions").delete().like("endpoint", `https://push.invalid/${tag}%`);
     await admin.from("jobs").delete().in("id", [ids.job, ids.bJob]);

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { CancelSheet } from "@/components/public/cancel-sheet";
+import { CustomerPhotos } from "@/components/public/customer-photos";
 import { loadCustomerJob } from "@/lib/customer-link";
 import { whatsappHref } from "@/lib/domain/links";
 import { formatTRY } from "@/lib/domain/money";
@@ -64,21 +65,7 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
         </section>
       ) : null}
 
-      {photos.length ? (
-        <section className={cardClass}>
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground">Fotoğraflar</h2>
-          <ul className="grid grid-cols-3 gap-2">
-            {photos.map((photo) => (
-              <li key={photo.id}>
-                <a href={photo.url} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-xl border border-border bg-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- token-verified media proxy */}
-                  <img src={photo.url} alt={photo.fromCustomer ? "Sizin eklediğiniz fotoğraf" : "Ustanızın paylaştığı fotoğraf"} loading="lazy" className="size-full object-cover" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <CustomerPhotos token={token} photos={photos} canUpload={capabilities.uploadPhotos} />
 
       {artisan.phone ? (
         <section className="grid grid-cols-2 gap-2" aria-label="Ustanızla iletişim">

@@ -42,6 +42,10 @@ export function describeEvent(event: JobEvent): { title: string; detail?: string
       return { title: JOB_EVENT_LABELS[event.event_type], detail: when(p.starts_at) };
     case "appointment_rescheduled":
       return { title: "Randevu yeniden planlandı", detail: `${when(p.old_starts_at) ?? "—"} → ${when(p.starts_at) ?? "—"}` };
+    case "media_added":
+    case "media_deleted":
+      if (p.kind === "image") return { title: event.event_type === "media_added" ? "Fotoğraf eklendi" : "Fotoğraf silindi" };
+      return { title: JOB_EVENT_LABELS[event.event_type] };
     default:
       return { title: JOB_EVENT_LABELS[event.event_type] ?? "Değişiklik" };
   }

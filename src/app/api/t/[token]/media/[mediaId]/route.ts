@@ -1,7 +1,5 @@
 import { verifyCustomerToken } from "@/lib/customer-link";
-import { invalidLink as invalid, PRIVATE_HEADERS } from "@/lib/customer-api";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { invalidLink as invalid, PRIVATE_HEADERS, UUID } from "@/lib/customer-api";
 
 /**
  * Token-verified media proxy (plan §5, P-10): re-checks the link on every

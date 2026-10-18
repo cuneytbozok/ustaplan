@@ -7,6 +7,7 @@ export const TIME_ZONE = "Europe/Istanbul";
 const dateFormatter = new Intl.DateTimeFormat("tr-TR", { timeZone: TIME_ZONE, day: "numeric", month: "long", weekday: "long" });
 const shortDateFormatter = new Intl.DateTimeFormat("tr-TR", { timeZone: TIME_ZONE, day: "numeric", month: "short" });
 const timeFormatter = new Intl.DateTimeFormat("tr-TR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
 
 /** "17 Ekim Cumartesi" */
 export function formatDate(value: Date | string) {
@@ -21,6 +22,11 @@ export function formatShortDate(value: Date | string) {
 /** "14:30" */
 export function formatTime(value: Date | string) {
   return timeFormatter.format(new Date(value));
+}
+
+/** "2026-10-18": the Istanbul calendar day, for per-day dedupe keys. */
+export function istanbulDateKey(now: Date = new Date()) {
+  return dateKeyFormatter.format(now);
 }
 
 /** UTC bounds [start, end) of the Istanbul calendar day containing `now`. */

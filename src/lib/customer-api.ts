@@ -2,6 +2,8 @@ import "server-only";
 import { INVALID_LINK_MESSAGE } from "@/components/public/invalid-link";
 import { appEnv } from "@/lib/env";
 
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Headers for every /api/t response (plan §5). */
 export const PRIVATE_HEADERS = {
   "Cache-Control": "no-store",
