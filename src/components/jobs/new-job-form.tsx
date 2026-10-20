@@ -1,11 +1,14 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Plus, Search, UserPlus } from "lucide-react";
-import { createJob, type NewJobValues } from "@/actions/jobs";
+import { createJob, type NewJobState, type NewJobValues } from "@/actions/jobs";
 import { AppointmentPicker, type PickerValue } from "@/components/appointments/appointment-picker";
 import { describedBy, FormField, inputClassName } from "@/components/common/form-field";
 import { FormStatus } from "@/components/common/form-status";
+import { uploadVoiceNote } from "@/components/media/voice-notes";
+import { NoteDrafts, type NoteDraft, type VoiceDraft } from "@/components/notes/note-drafts";
 import { foldTr } from "@/lib/domain/search-fold";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +33,41 @@ export function NewJobForm({
   picker: { today: string; tomorrow: string; initial: PickerValue };
 }) {
   const [jobId] = useState(() => crypto.randomUUID());
-  const [state, formAction, pending] = useActionState(createJob, null);
+  const router = useRouter();
+  const [noteDrafts, setNoteDrafts] = useState<NoteDraft[]>([]);
+  const [voiceDrafts, setVoiceDrafts] = useState<VoiceDraft[]>([]);
+  // Recordings that failed to upload after the job was saved.
+  const [failedUploads, setFailedUploads] = useState<string[]>([]);
+  const uploaded = useRef(new Set<string>());
+  const [retrying, startRetry] = useTransition();
+
+  // Recordings live only in this page's memory: leaving the page frees them, nothing is uploaded.
+  const voiceRef = useRef<VoiceDraft[]>([]);
+  useEffect(() => {
+    voiceRef.current = voiceDrafts;
+  }, [voiceDrafts]);
+  useEffect(() => () => voiceRef.current.forEach((draft) => URL.revokeObjectURL(draft.url)), []);
+
+  /** Uploads every recording not stored yet; opens the job once all are in. */
+  async function uploadRecordings(saved: { jobId: string; ownerId: string }) {
+    const failed: string[] = [];
+    for (const draft of voiceRef.current) {
+      if (uploaded.current.has(draft.id)) continue;
+      const result = await uploadVoiceNote(saved.ownerId, saved.jobId, draft.recording).catch(() => ({ ok: false as const }));
+      if (result.ok) uploaded.current.add(draft.id);
+      else failed.push(draft.id);
+    }
+    setFailedUploads(failed);
+    if (!failed.length) router.replace(`/isler/${saved.jobId}?paylas=1`);
+  }
+
+  const [state, formAction, pending] = useActionState(async (previous: NewJobState, formData: FormData) => {
+    const result = await createJob(previous, formData);
+    // The job exists now (create_job is idempotent on jobId): upload the recordings into it.
+    if (result?.ok) await uploadRecordings(result.data);
+    return result;
+  }, null);
+  const saved = state?.ok ? state.data : null;
   const [mode, setMode] = useState<"existing" | "new">(customers.length ? "existing" : "new");
   const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
   const [picking, setPicking] = useState(false);
@@ -53,9 +90,9 @@ export function NewJobForm({
   }, [customers, query]);
 
   const values: Partial<NewJobValues> = state?.values ?? {};
-  const errors = state?.fieldErrors ?? {};
+  const errors = (state && !state.ok && state.fieldErrors) || {};
   const key = JSON.stringify(values);
-  const detailsHaveError = Boolean(errors.agreedPrice || errors.estimatedPrice || errors.privateNote);
+  const detailsHaveError = Boolean(errors.agreedPrice || errors.estimatedPrice || errors.notes);
 
   function choose(id: string) {
     setMode("existing");
@@ -71,6 +108,10 @@ export function NewJobForm({
       <input type="hidden" name="jobId" value={jobId} />
       <input type="hidden" name="customerMode" value={mode} />
       <input type="hidden" name="customerId" value={mode === "existing" ? customerId : ""} />
+      {noteDrafts.map((note) => (
+        <input key={note.id} type="hidden" name="notes" value={note.body} />
+      ))}
+      <input type="hidden" name="pendingAudio" value={voiceDrafts.length} />
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-sm font-medium text-ink">Müşteri</legend>
@@ -309,33 +350,58 @@ export function NewJobForm({
               className={inputClassName}
             />
           </FormField>
-          <FormField id="privateNote" label="Özel not" hint="Sadece sen görürsün." error={errors.privateNote}>
-            <textarea
-              key={`o-${key}`}
-              id="privateNote"
-              name="privateNote"
-              rows={3}
-              maxLength={4000}
-              defaultValue={values.privateNote}
-              aria-invalid={Boolean(errors.privateNote)}
-              aria-describedby={describedBy("privateNote", errors.privateNote, "Sadece sen görürsün.")}
-              className={cn(inputClassName, "h-auto py-2.5")}
-            />
-          </FormField>
+          <NoteDrafts
+            notes={noteDrafts}
+            onNotesChange={setNoteDrafts}
+            recordings={voiceDrafts}
+            onRecord={(recording) =>
+              setVoiceDrafts((drafts) => [...drafts, { id: crypto.randomUUID(), recording, url: URL.createObjectURL(recording.blob) }])
+            }
+            onRemoveRecording={(id) => {
+              const draft = voiceDrafts.find((d) => d.id === id);
+              if (draft) URL.revokeObjectURL(draft.url);
+              setVoiceDrafts((drafts) => drafts.filter((d) => d.id !== id));
+            }}
+            error={errors.notes}
+            locked={Boolean(saved)}
+          />
         </div>
       </details>
 
-      {state ? <FormStatus state={state} success="" /> : null}
+      {state && !state.ok ? <FormStatus state={state} success="" /> : null}
 
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-1 bg-background/95 px-1 pt-2 pb-1 backdrop-blur">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-70"
-        >
-          <Check className="size-5" aria-hidden />
-          {pending ? "Kaydediliyor…" : schedule && conflict ? "Yine de kaydet" : "İşi kaydet"}
-        </button>
+        {saved && failedUploads.length ? (
+          // The job is saved; only recordings are missing. Never lose the job over them.
+          <div role="alert" className="flex flex-col gap-2 rounded-xl border border-warning/40 bg-surface p-3">
+            <p className="text-sm text-ink">İş kaydedildi. {failedUploads.length} ses notu yüklenemedi. Bağlantını kontrol edip tekrar dene.</p>
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={() => startRetry(() => uploadRecordings(saved))}
+              className="h-12 rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-70"
+            >
+              {retrying ? "Yükleniyor…" : "Tekrar dene"}
+            </button>
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={() => router.replace(`/isler/${saved.jobId}?paylas=1`)}
+              className="h-11 rounded-xl border border-border bg-surface text-sm font-medium text-ink hover:bg-muted"
+            >
+              Ses notu olmadan devam et
+            </button>
+          </div>
+        ) : (
+          <button
+            type="submit"
+            disabled={pending || Boolean(saved)}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-70"
+          >
+            <Check className="size-5" aria-hidden />
+            {pending || saved ? "Kaydediliyor…" : schedule && conflict ? "Yine de kaydet" : "İşi kaydet"}
+          </button>
+        )}
       </div>
     </form>
   );

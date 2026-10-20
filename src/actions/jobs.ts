@@ -20,9 +20,17 @@ export type NewJobValues = {
   agreedPrice: string;
   estimatedPrice: string;
   showPrice: boolean;
-  privateNote: string;
 };
-export type NewJobState = (Extract<ActionResult, { ok: false }> & { values: NewJobValues }) | null;
+/**
+ * Failure keeps the typed values. Success only comes back (instead of a
+ * redirect) when voice recordings wait to be uploaded into the new job (N-1).
+ */
+export type NewJobState =
+  | ((Extract<ActionResult, { ok: false }> | { ok: true; data: { jobId: string; ownerId: string } }) & { values: NewJobValues })
+  | null;
+
+const MAX_NOTES = 10;
+const noteSchema = z.string().trim().max(4000, "Bir not en fazla 4000 karakter olabilir.");
 
 const schema = z.object({
   jobId: z.uuid(),
@@ -35,7 +43,6 @@ const schema = z.object({
   agreedPrice: z.string().trim(),
   estimatedPrice: z.string().trim(),
   showPrice: z.boolean(),
-  privateNote: z.string().trim().max(4000, "Not en fazla 4000 karakter olabilir."),
 });
 
 function read(formData: FormData): NewJobValues {
@@ -51,7 +58,6 @@ function read(formData: FormData): NewJobValues {
     agreedPrice: text("agreedPrice"),
     estimatedPrice: text("estimatedPrice"),
     showPrice: formData.get("showPrice") === "on",
-    privateNote: text("privateNote"),
   };
 }
 
@@ -84,6 +90,11 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
   // "Randevu planla" is optional; when on, the first visit is created in the same transaction.
   const appointment = formData.get("schedule") === "on" ? readAppointmentFields(formData) : null;
   if (appointment && "error" in appointment) errors.appointment = appointment.error;
+  // Private written notes (plan N-1): stored by create_job in the same transaction.
+  const notes = formData.getAll("notes").map((note) => noteSchema.safeParse(String(note)));
+  const badNote = notes.find((note) => !note.success);
+  if (badNote && !badNote.success) errors.notes = badNote.error.issues[0]?.message ?? "Notları kontrol et.";
+  else if (notes.length > MAX_NOTES) errors.notes = `En fazla ${MAX_NOTES} not ekleyebilirsin.`;
   if (Object.keys(errors).length) return fail("Bilgileri kontrol et.", errors);
   const slot = appointment && !("error" in appointment) ? appointment : null;
 
@@ -99,8 +110,7 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
     p_address_id: addressId ?? undefined,
     p_estimated_price: estimated ?? undefined,
     p_agreed_price: agreed ?? undefined,
-    // The first private note is written in the same transaction (plan N-1).
-    p_notes: input.privateNote ? [input.privateNote] : undefined,
+    p_notes: notes.flatMap((note) => (note.success && note.data ? [note.data] : [])),
     p_show_price: input.showPrice,
     p_starts_at: slot?.start.toISOString(),
     p_ends_at: slot?.end.toISOString(),
@@ -113,6 +123,8 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
   if (result.result === "customer_not_found") return fail("Müşteri bulunamadı.", { customer: "Müşteri bulunamadı." });
   if (result.result !== "ok" || !result.job_id) return fail("Bilgileri kontrol et.");
 
+  // Recordings are uploaded by the browser now that the job exists; it navigates afterwards.
+  if (Number(formData.get("pendingAudio")) > 0) return { ok: true, data: { jobId: result.job_id, ownerId: userId }, values };
   // ?paylas=1: the job page opens the share sheet, offering to send the link (plan §10).
   redirect(`/isler/${result.job_id}?paylas=1`, RedirectType.replace);
 }

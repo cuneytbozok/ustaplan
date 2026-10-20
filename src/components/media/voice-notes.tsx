@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from
 import { Mic, Square, Trash2 } from "lucide-react";
 import { deleteMedia, registerVoiceNote } from "@/actions/media";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
+import type { ActionResult } from "@/lib/action-result";
 import { formatShortDate, formatTime } from "@/lib/domain/time";
 
 export type VoiceNote = { id: string; url: string; durationSeconds: number; createdAt: string };
@@ -23,9 +24,25 @@ function pickFormat() {
 }
 const noopSubscribe = () => () => {};
 
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+export const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 
-function Recorder({ jobId, ownerId }: { jobId: string; ownerId: string }) {
+export type Recording = { blob: Blob; ext: (typeof FORMATS)[number]["ext"]; contentType: string; seconds: number };
+
+/** Uploads a recording into the job's folder, then registers it (the server checks size and bytes). */
+export async function uploadVoiceNote(ownerId: string, jobId: string, recording: Recording): Promise<ActionResult> {
+  const mediaId = crypto.randomUUID();
+  const { error } = await createBrowserSupabase()
+    .storage.from("job-audio")
+    .upload(`${ownerId}/${jobId}/${mediaId}.${recording.ext}`, recording.blob, { contentType: recording.contentType, upsert: false });
+  if (error) return { ok: false, error: "Ses notu yüklenemedi. Bağlantını kontrol edip tekrar dene." };
+  return registerVoiceNote(jobId, mediaId, recording.ext, recording.seconds);
+}
+
+/**
+ * Record up to 60 s. `onRecorded` gets the finished recording and returns an
+ * error message to show, or null; the button says "Kaydediliyor…" meanwhile.
+ */
+export function VoiceRecorder({ onRecorded }: { onRecorded: (recording: Recording) => Promise<string | null> }) {
   // Support is only known in the browser; the server renders nothing for it.
   const format = useSyncExternalStore(noopSubscribe, pickFormat, () => undefined);
   const [state, setState] = useState<"idle" | "recording" | "saving">("idle");
@@ -79,16 +96,9 @@ function Recorder({ jobId, ownerId }: { jobId: string; ownerId: string }) {
       }
       setState("saving");
       try {
-        const blob = new Blob(chunks, { type: chosen.upload });
-        const mediaId = crypto.randomUUID();
-        const { error: uploadError } = await createBrowserSupabase()
-          .storage.from("job-audio")
-          .upload(`${ownerId}/${jobId}/${mediaId}.${chosen.ext}`, blob, { contentType: chosen.upload, upsert: false });
-        if (uploadError) throw new Error("Ses notu yüklenemedi. Bağlantını kontrol edip tekrar dene.");
-        const result = await registerVoiceNote(jobId, mediaId, chosen.ext, seconds);
-        if (!result.ok) throw new Error(result.error);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Ses notu kaydedilemedi.");
+        setError(await onRecorded({ blob: new Blob(chunks, { type: chosen.upload }), ext: chosen.ext, contentType: chosen.upload, seconds }));
+      } catch {
+        setError("Ses notu kaydedilemedi.");
       } finally {
         setState("idle");
       }
@@ -224,7 +234,12 @@ export function VoiceNotes({ notes, jobId, ownerId }: { notes: VoiceNote[]; jobI
           ))}
         </ul>
       )}
-      <Recorder jobId={jobId} ownerId={ownerId} />
+      <VoiceRecorder
+        onRecorded={async (recording) => {
+          const result = await uploadVoiceNote(ownerId, jobId, recording);
+          return result.ok ? null : result.error;
+        }}
+      />
     </div>
   );
 }

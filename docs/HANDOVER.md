@@ -3,17 +3,18 @@
 _Rewritten at the end of every task. Last updated: 2026-10-20._
 
 ## State in one line
-Owner request **job notes** (plan N-1) split into N.1–N.3. **N.1 is complete and committed locally, not pushed.** M6.5 and M6.7 stay blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
+Owner request **job notes** (plan N-1) split into N.1–N.3. **N.1 and N.2 are complete and committed locally, not pushed.** M6.5 and M6.7 stay blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
 
 ## Last completed task
 **N.1**: migration `20261020100832_job_notes.sql` (applied to dev with approval): `job_notes` table + RLS, old `jobs.private_note` copied in and the column dropped, `create_job(p_notes text[])`, `note_*` events and `customer_note` category (for N.3). Job page has one **Notlarım** card (written notes with add/edit/"Düzenlendi"/delete-with-confirmation, plus the voice notes as before). `actions/notes.ts`, `components/notes/job-notes.tsx`.
 
+**N.2**: Yeni iş → Diğer detaylar has a Notlar block (written drafts → `create_job(p_notes)`; recordings kept in memory, uploaded after create; failure → Tekrar dene / Ses notu olmadan devam et). `components/notes/note-drafts.tsx`; recorder split into `VoiceRecorder` + `uploadVoiceNote`.
+
 ## Current or interrupted task
-None. **N.2** (notes in Yeni iş, voice recordings kept in memory and uploaded after create, retry on failure) and **N.3** (customer notes on `/t/<token>`, open jobs only; "Müşteri notları"; `customer_note` notification) are Pending; the design is in plan §15 N-1.
+**N.3** (customer notes on `/t/<token>`, open jobs only; "Müşteri notları"; `customer_note` notification): in progress; design in plan §15 N-1.
 
 ## Key decisions
 - N-1 (owner, 2026-10-20): migrate and remove the old single note; customers may write/edit/delete notes only while the job is open. Customer notes = plain admin CRUD in route handlers (no new RPC), rate limits counted from rows, `note_*` audit events without text.
-- Until N.2, Yeni iş still has one "Özel not" field; it is saved as the first note through `p_notes`.
 - Earlier decisions (admin panel, customer links, push, reschedule, etc.) unchanged; see plan §15.
 
 ## Tests executed
