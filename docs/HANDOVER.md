@@ -3,7 +3,7 @@
 _Rewritten at the end of every task. Last updated: 2026-10-20._
 
 ## State in one line
-Owner request **job notes** (plan N-1) is complete: **N.1–N.3 committed locally, not pushed.** M6.5 and M6.7 stay blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
+Owner request **job notes** (plan N-1) is complete: **N.1–N.3 pushed and deployed (`2f6fd46`).** M6.5 and M6.7 stay blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
 
 ## Last completed task
 **N.3**: customers add / edit / delete their own written notes on `/t/<token>` while the job is open (read-only afterwards): `api/t/[token]/notes` (+ `/[noteId]`), `lib/customer-notes.ts`, `components/public/customer-notes.tsx`, `CustomerJobView.notes` + `capabilities.writeNotes`. Artisan sees a separate read-only **Müşteri notları** card and a daily `customer_note` inbox item (first one pushed).
@@ -21,7 +21,6 @@ None.
 security-check **355/355** (local production build :3200); typecheck, lint, test 32/32, build pass. Browser flows at 360 px with fake account C for all three tasks (fake data removed). The pane has no microphone: N.2 recording was tested with a generated tone; the "drafts locked after a failed upload" view was checked by code only. Not tested on a real phone yet.
 
 ## Known bugs and blockers
-- **Deploy gap:** the live app (old code) still selects `jobs.private_note`, which no longer exists in dev → job detail/edit pages on ustaplan.vercel.app fail until N.1–N.3 are pushed. Push needs owner approval.
 - Dev data has an old fake "hack · hack" job with a pending date request for account C (from a 2026-10-18 check run); harmless.
 - KVKK review open (blocks M6.7); `npm audit` dev-tooling advisories accepted; no Vercel CLI/MCP access (deploys verified over HTTP).
 
@@ -29,10 +28,10 @@ security-check **355/355** (local production build :3200); typecheck, lint, test
 Dev Supabase `xytwwudbnykackuxfeif` (Ireland), Vercel `ustaplan` → https://ustaplan.vercel.app (Production on dev data).
 
 ## Uncommitted changes
-None. Commits N.1, N.2, N.3 are local only.
+None. N.1–N.3 pushed with the owner's approval (2026-10-20); the live site serves the new notes routes (GET → 405, foreign Origin → 403).
 
 ## Exact next action
-Ask the owner to approve `git push` (closes the deploy gap), then check `/isler/<id>` and a customer link on the deployed URL and on a phone (record a real voice note in Yeni iş; customer note → push on the artisan's phone).
+Owner: check `/isler/<id>` and a customer link on the deployed URL and on a phone (record a real voice note in Yeni iş; customer note → push on the artisan's phone).
 
 ## Resume commands
 ```bash
