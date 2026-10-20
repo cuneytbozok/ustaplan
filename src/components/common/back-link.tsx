@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { canGoBack, useGoBack } from "@/components/shell/navigation-marker";
+import { cn } from "@/lib/utils";
 
 /**
  * "Geri": returns to wherever the user came from inside the app (Takvim,
  * a customer, İşler…). Without in-app history it goes to `href`, the parent page.
  */
-export function BackLink({ href }: { href: string }) {
+export function BackLink({ href, iconOnly = false, className }: { href: string; iconOnly?: boolean; className?: string }) {
   const goBack = useGoBack(href);
   return (
     <Link
@@ -18,10 +19,15 @@ export function BackLink({ href }: { href: string }) {
         event.preventDefault();
         goBack();
       }}
-      className="-ml-2 flex h-11 w-fit items-center gap-1 rounded-xl px-2 text-sm font-medium text-muted-foreground hover:text-ink"
+      aria-label={iconOnly ? "Geri" : undefined}
+      className={cn(
+        "-ml-2 flex h-11 w-fit shrink-0 items-center gap-1 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-ink",
+        iconOnly ? "w-11 justify-center" : "px-2",
+        className,
+      )}
     >
-      <ChevronLeft className="size-4" aria-hidden />
-      Geri
+      <ChevronLeft className={iconOnly ? "size-6 text-ink" : "size-4"} aria-hidden />
+      {iconOnly ? null : "Geri"}
     </Link>
   );
 }

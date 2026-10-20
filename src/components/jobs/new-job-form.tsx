@@ -1,25 +1,29 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Plus, Search, UserPlus } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
+import { createAddress } from "@/actions/customers";
 import { createJob, type NewJobState, type NewJobValues } from "@/actions/jobs";
 import { AppointmentPicker, type PickerValue } from "@/components/appointments/appointment-picker";
 import { describedBy, FormField, inputClassName } from "@/components/common/form-field";
 import { FormStatus } from "@/components/common/form-status";
+import { AddressForm } from "@/components/customers/address-form";
+import { AddAddressButton } from "@/components/customers/address-section";
+import { CustomerPicker } from "@/components/jobs/customer-picker";
 import { uploadVoiceNote } from "@/components/media/voice-notes";
-import { NoteDrafts, type NoteDraft, type VoiceDraft } from "@/components/notes/note-drafts";
-import { foldTr } from "@/lib/domain/search-fold";
+import { emptyDraft, NoteDrafts, type NoteDraft, type VoiceDraft } from "@/components/notes/note-drafts";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PRICE_HINTS } from "@/lib/domain/labels";
 import { cn } from "@/lib/utils";
 
 export type CustomerOption = {
   id: string;
   name: string;
+  phone?: string | null;
   addresses: { id: string; label: string | null; address_text: string }[];
 };
 
-const chipClass =
-  "flex h-11 max-w-full items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors";
 
 export function NewJobForm({
   customers,
@@ -34,7 +38,7 @@ export function NewJobForm({
 }) {
   const [jobId] = useState(() => crypto.randomUUID());
   const router = useRouter();
-  const [noteDrafts, setNoteDrafts] = useState<NoteDraft[]>([]);
+  const [noteDrafts, setNoteDrafts] = useState<NoteDraft[]>(() => [emptyDraft()]);
   const [voiceDrafts, setVoiceDrafts] = useState<VoiceDraft[]>([]);
   // Recordings that failed to upload after the job was saved.
   const [failedUploads, setFailedUploads] = useState<string[]>([]);
@@ -70,8 +74,9 @@ export function NewJobForm({
   const saved = state?.ok ? state.data : null;
   const [mode, setMode] = useState<"existing" | "new">(customers.length ? "existing" : "new");
   const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
-  const [picking, setPicking] = useState(false);
-  const [query, setQuery] = useState("");
+  // Name/phone carried over from the search when "Yeni müşteri" is chosen.
+  const [prefill, setPrefill] = useState({ name: "", phone: "" });
+  const [addingAddress, setAddingAddress] = useState(false);
   const [agreed, setAgreed] = useState("");
   const [schedule, setSchedule] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -79,28 +84,19 @@ export function NewJobForm({
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
   const selected = mode === "existing" ? byId.get(customerId) : undefined;
-  const chips = useMemo(() => {
-    const ids = [...recentIds];
-    if (customerId && !ids.includes(customerId)) ids.unshift(customerId);
-    return ids.map((id) => byId.get(id)).filter((c): c is CustomerOption => Boolean(c));
-  }, [recentIds, customerId, byId]);
-  const matches = useMemo(() => {
-    const folded = foldTr(query.trim());
-    return customers.filter((c) => !folded || foldTr(c.name).includes(folded)).slice(0, 30);
-  }, [customers, query]);
 
   const values: Partial<NewJobValues> = state?.values ?? {};
   const errors = (state && !state.ok && state.fieldErrors) || {};
-  const key = JSON.stringify(values);
+  const key = JSON.stringify([values, prefill]);
   const detailsHaveError = Boolean(errors.agreedPrice || errors.estimatedPrice || errors.notes);
+
+  const closeAddress = useCallback(() => setAddingAddress(false), []);
 
   function choose(id: string) {
     setMode("existing");
     setCustomerId(id);
-    setPicking(false);
-    setQuery("");
     // Next step of the fast path: type "Yapılacak iş" right away.
-    titleRef.current?.focus();
+    if (id) requestAnimationFrame(() => titleRef.current?.focus());
   }
 
   return (
@@ -108,96 +104,44 @@ export function NewJobForm({
       <input type="hidden" name="jobId" value={jobId} />
       <input type="hidden" name="customerMode" value={mode} />
       <input type="hidden" name="customerId" value={mode === "existing" ? customerId : ""} />
-      {noteDrafts.map((note) => (
-        <input key={note.id} type="hidden" name="notes" value={note.body} />
-      ))}
       <input type="hidden" name="pendingAudio" value={voiceDrafts.length} />
 
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium text-ink">Müşteri</legend>
-        <div className="flex flex-wrap gap-2">
-          {chips.map((customer) => {
-            const active = mode === "existing" && customer.id === customerId;
-            return (
-              <button
-                key={customer.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => choose(customer.id)}
-                className={cn(
-                  chipClass,
-                  active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface text-ink hover:bg-muted",
-                )}
-              >
-                {active ? <Check className="size-4 shrink-0" aria-hidden /> : null}
-                <span className="truncate">{customer.name}</span>
-              </button>
-            );
-          })}
-          {customers.length > chips.length ? (
-            <button
-              type="button"
-              aria-expanded={picking}
-              onClick={() => setPicking((open) => !open)}
-              className={cn(chipClass, "border-dashed border-border bg-surface text-ink hover:bg-muted")}
-            >
-              <Search className="size-4" aria-hidden />
-              Diğer müşteri
-            </button>
-          ) : null}
-          <button
-            type="button"
-            aria-pressed={mode === "new"}
-            onClick={() => {
+        {mode === "existing" ? (
+          <CustomerPicker
+            customers={customers}
+            recentIds={recentIds}
+            selected={selected}
+            onSelect={choose}
+            onCreateNew={(next) => {
+              setPrefill(next);
               setMode("new");
-              setPicking(false);
+              requestAnimationFrame(() => document.getElementById(next.name ? "newCustomerPhone" : "newCustomerName")?.focus());
             }}
-            className={cn(
-              chipClass,
-              mode === "new" ? "border-primary bg-primary-soft text-primary" : "border-dashed border-border bg-surface text-ink hover:bg-muted",
-            )}
-          >
-            <UserPlus className="size-4" aria-hidden />
-            Yeni müşteri
-          </button>
-        </div>
-
-        {picking ? (
-          <div className="rounded-xl border border-border p-2">
-            <input
-              type="search"
-              aria-label="Müşteri ara"
-              placeholder="Müşteri ara"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className={inputClassName}
-              autoFocus
-            />
-            <ul className="mt-2 max-h-64 overflow-y-auto">
-              {matches.map((customer) => (
-                <li key={customer.id}>
-                  <button
-                    type="button"
-                    onClick={() => choose(customer.id)}
-                    className="flex h-11 w-full items-center rounded-lg px-3 text-left text-sm text-ink hover:bg-muted"
-                  >
-                    <span className="truncate">{customer.name}</span>
-                  </button>
-                </li>
-              ))}
-              {matches.length === 0 ? <li className="px-3 py-2 text-sm text-muted-foreground">Sonuç yok.</li> : null}
-            </ul>
-          </div>
+          />
         ) : null}
 
         {mode === "new" ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-border p-3">
+          <div className="flex flex-col gap-3 rounded-xl border border-primary p-3">
+            <div className="-mt-1 flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-ink">Yeni müşteri</p>
+              {customers.length ? (
+                <button
+                  type="button"
+                  onClick={() => setMode("existing")}
+                  className="flex h-11 items-center rounded-xl px-2 text-sm font-semibold text-primary hover:bg-primary-soft"
+                >
+                  Kayıtlı müşteri seç
+                </button>
+              ) : null}
+            </div>
             <FormField id="newCustomerName" label="Müşterinin adı" error={errors.newCustomerName}>
               <input
                 key={`n-${key}`}
                 id="newCustomerName"
                 name="newCustomerName"
-                defaultValue={values.newCustomerName}
+                defaultValue={values.newCustomerName ?? prefill.name}
                 autoCapitalize="words"
                 autoComplete="off"
                 maxLength={160}
@@ -220,7 +164,7 @@ export function NewJobForm({
                 inputMode="tel"
                 autoComplete="off"
                 placeholder="0532 123 45 67"
-                defaultValue={values.newCustomerPhone}
+                defaultValue={values.newCustomerPhone ?? prefill.phone}
                 aria-invalid={Boolean(errors.newCustomerPhone)}
                 aria-describedby={describedBy("newCustomerPhone", errors.newCustomerPhone, "Telefon yoksa WhatsApp ile paylaşamazsın.")}
                 className={inputClassName}
@@ -271,9 +215,9 @@ export function NewJobForm({
       </div>
 
       <details open={detailsHaveError || undefined} className="group rounded-xl border border-border bg-surface">
-        <summary className="flex h-12 cursor-pointer list-none items-center gap-2 px-4 text-sm font-semibold text-primary">
-          <Plus className="size-4 transition-transform group-open:rotate-45" aria-hidden />
+        <summary className="flex h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 text-sm font-semibold text-primary">
           Diğer detaylar (isteğe bağlı)
+          <ChevronDown className="size-5 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
         </summary>
         <div className="flex flex-col gap-4 border-t border-border p-4">
           {mode === "existing" && selected ? (
@@ -301,13 +245,19 @@ export function NewJobForm({
                 ))}
               </fieldset>
             ) : (
-              <p className="text-sm text-muted-foreground">Bu müşterinin kayıtlı adresi yok. Müşteri sayfasından ekleyebilirsin.</p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-ink">Adres</p>
+                  <p className="text-sm text-muted-foreground">Kayıtlı adres yok</p>
+                </div>
+                <AddAddressButton onClick={() => setAddingAddress(true)} />
+              </div>
             )
           ) : mode === "new" ? (
-            <p className="text-sm text-muted-foreground">Adresi işi kaydettikten sonra müşteri sayfasından ekleyebilirsin.</p>
+            <p className="text-sm text-muted-foreground">Adresi müşteri kaydedildikten sonra ekleyebilirsin.</p>
           ) : null}
 
-          <FormField id="agreedPrice" label="Anlaşılan fiyat (₺)" error={errors.agreedPrice}>
+          <FormField id="agreedPrice" label="Anlaşılan fiyat (₺)" hint={PRICE_HINTS.agreed} error={errors.agreedPrice}>
             <input
               key={`a-${key}`}
               id="agreedPrice"
@@ -318,7 +268,7 @@ export function NewJobForm({
               defaultValue={values.agreedPrice}
               onChange={(event) => setAgreed(event.target.value)}
               aria-invalid={Boolean(errors.agreedPrice)}
-              aria-describedby={describedBy("agreedPrice", errors.agreedPrice)}
+              aria-describedby={describedBy("agreedPrice", errors.agreedPrice, PRICE_HINTS.agreed)}
               className={inputClassName}
             />
           </FormField>
@@ -331,12 +281,9 @@ export function NewJobForm({
               disabled={!agreed.trim() && !values.agreedPrice}
               className="mt-0.5 size-5 shrink-0 accent-primary"
             />
-            <span>
-              Anlaşılan fiyatı müşteri görsün
-              <span className="block text-xs text-muted-foreground">Tahmini fiyat müşteriye hiçbir zaman gösterilmez.</span>
-            </span>
+            <span>Anlaşılan fiyatı müşteri görsün</span>
           </label>
-          <FormField id="estimatedPrice" label="Tahmini fiyat (₺)" hint="Sadece sen görürsün." error={errors.estimatedPrice}>
+          <FormField id="estimatedPrice" label="Tahmini fiyat (₺)" hint={PRICE_HINTS.estimated} error={errors.estimatedPrice}>
             <input
               key={`e-${key}`}
               id="estimatedPrice"
@@ -346,7 +293,7 @@ export function NewJobForm({
               placeholder="2.000"
               defaultValue={values.estimatedPrice}
               aria-invalid={Boolean(errors.estimatedPrice)}
-              aria-describedby={describedBy("estimatedPrice", errors.estimatedPrice, "Sadece sen görürsün.")}
+              aria-describedby={describedBy("estimatedPrice", errors.estimatedPrice, PRICE_HINTS.estimated)}
               className={inputClassName}
             />
           </FormField>
@@ -403,6 +350,26 @@ export function NewJobForm({
           </button>
         )}
       </div>
+      {/* The address form is its own <form>: the sheet renders it outside this one (portal). */}
+      <Sheet open={addingAddress} onOpenChange={setAddingAddress}>
+        <SheetContent side="bottom" className="max-h-[95dvh] rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <SheetHeader className="pr-14">
+            <SheetTitle className="text-lg font-semibold text-ink">Adres ekle</SheetTitle>
+            <SheetDescription>{selected?.name}</SheetDescription>
+          </SheetHeader>
+          <div className="px-4">
+            {selected ? (
+              <AddressForm
+                action={createAddress.bind(null, selected.id)}
+                idPrefix="job-address-new"
+                submitLabel="Adresi kaydet"
+                onDone={closeAddress}
+                onCancel={closeAddress}
+              />
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
     </form>
   );
 }

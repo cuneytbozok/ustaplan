@@ -67,7 +67,7 @@ export function CustomerNotes({ token, notes, canWrite }: { token: string; notes
           )}
         </ul>
       ) : null}
-      {canWrite ? <AddNote maxLength={1000} onSave={(text) => done(send(`/api/t/${token}/notes`, "POST", text))} /> : null}
+      {canWrite ? <AddNote maxLength={1000} placeholder="Örn. kapı kodu, uygun olduğunuz saatler…" onSave={(text) => done(send(`/api/t/${token}/notes`, "POST", text))} /> : null}
     </section>
   );
 }

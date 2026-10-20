@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { updateJob } from "@/actions/jobs";
-import { BackLink } from "@/components/common/back-link";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
@@ -49,8 +48,7 @@ async function EditJob({ params }: { params: PageProps<"/isler/[id]/duzenle">["p
 
   return (
     <>
-      <BackLink href={`/isler/${job.id}`} />
-      <PageHeader title="İşi düzenle" />
+      <PageHeader backHref={`/isler/${job.id}`} title="İşi düzenle" />
       <section className="rounded-2xl border border-border bg-surface p-4">
         <EditJobForm
           action={updateJob.bind(null, job.id)}

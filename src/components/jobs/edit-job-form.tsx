@@ -6,6 +6,7 @@ import type { EditJobState, EditJobValues } from "@/actions/jobs";
 import { describedBy, FormField, inputClassName } from "@/components/common/form-field";
 import { FormStatus } from "@/components/common/form-status";
 import { useGoBack } from "@/components/shell/navigation-marker";
+import { PRICE_HINTS } from "@/lib/domain/labels";
 import { cn } from "@/lib/utils";
 import type { CustomerOption } from "./new-job-form";
 
@@ -88,7 +89,7 @@ export function EditJobForm({ action, customers, initial, doneHref }: { action: 
         <p className="text-sm text-muted-foreground">Bu müşterinin kayıtlı adresi yok. Müşteri sayfasından ekleyebilirsin.</p>
       )}
 
-      <FormField id="agreedPrice" label="Anlaşılan fiyat (₺)" error={errors.agreedPrice}>
+      <FormField id="agreedPrice" label="Anlaşılan fiyat (₺)" hint={PRICE_HINTS.agreed} error={errors.agreedPrice}>
         <input
           key={`a-${key}`}
           id="agreedPrice"
@@ -99,7 +100,7 @@ export function EditJobForm({ action, customers, initial, doneHref }: { action: 
           defaultValue={values.agreedPrice}
           onChange={(event) => setAgreed(event.target.value)}
           aria-invalid={Boolean(errors.agreedPrice)}
-          aria-describedby={describedBy("agreedPrice", errors.agreedPrice)}
+          aria-describedby={describedBy("agreedPrice", errors.agreedPrice, PRICE_HINTS.agreed)}
           className={inputClassName}
         />
       </FormField>
@@ -112,12 +113,9 @@ export function EditJobForm({ action, customers, initial, doneHref }: { action: 
           disabled={!agreed.trim()}
           className="mt-0.5 size-5 shrink-0 accent-primary"
         />
-        <span>
-          Anlaşılan fiyatı müşteri görsün
-          <span className="block text-xs text-muted-foreground">Tahmini fiyat müşteriye hiçbir zaman gösterilmez.</span>
-        </span>
+        <span>Anlaşılan fiyatı müşteri görsün</span>
       </label>
-      <FormField id="estimatedPrice" label="Tahmini fiyat (₺)" hint="Sadece sen görürsün." error={errors.estimatedPrice}>
+      <FormField id="estimatedPrice" label="Tahmini fiyat (₺)" hint={PRICE_HINTS.estimated} error={errors.estimatedPrice}>
         <input
           key={`e-${key}`}
           id="estimatedPrice"
@@ -127,7 +125,7 @@ export function EditJobForm({ action, customers, initial, doneHref }: { action: 
           placeholder="2.000"
           defaultValue={values.estimatedPrice}
           aria-invalid={Boolean(errors.estimatedPrice)}
-          aria-describedby={describedBy("estimatedPrice", errors.estimatedPrice, "Sadece sen görürsün.")}
+          aria-describedby={describedBy("estimatedPrice", errors.estimatedPrice, PRICE_HINTS.estimated)}
           className={inputClassName}
         />
       </FormField>

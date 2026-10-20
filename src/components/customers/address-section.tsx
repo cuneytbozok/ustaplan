@@ -15,13 +15,20 @@ export function AddressSection({ customerId, addresses }: { customerId: string; 
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-4">
-      <h2 className="mb-3 text-base font-semibold text-ink">Adresler</h2>
-
       {addresses.length === 0 && editing !== "new" ? (
-        <p className="mb-3 text-sm text-muted-foreground">Kayıtlı adres yok. İşlerde seçebilmek için adres ekle.</p>
-      ) : null}
+        // Compact empty state: one line, one action.
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Adresler</h2>
+            <p className="text-sm text-muted-foreground">Kayıtlı adres yok</p>
+          </div>
+          <AddAddressButton onClick={() => setEditing("new")} />
+        </div>
+      ) : (
+        <h2 className="mb-3 text-base font-semibold text-ink">Adresler</h2>
+      )}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3 empty:hidden">
         {addresses.map((address) =>
           editing === address.id ? (
             <li key={address.id} className="rounded-xl border border-border p-3">
@@ -82,7 +89,7 @@ export function AddressSection({ customerId, addresses }: { customerId: string; 
             onCancel={close}
           />
         </div>
-      ) : (
+      ) : addresses.length ? (
         <button
           type="button"
           onClick={() => setEditing("new")}
@@ -91,7 +98,21 @@ export function AddressSection({ customerId, addresses }: { customerId: string; 
           <Plus className="size-4" aria-hidden />
           Adres ekle
         </button>
-      )}
+      ) : null}
     </section>
+  );
+}
+
+/** Small "+ Adres ekle" action for empty states (customer page, Yeni iş). */
+export function AddAddressButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary hover:bg-primary-soft"
+    >
+      <Plus className="size-4" aria-hidden />
+      Adres ekle
+    </button>
   );
 }

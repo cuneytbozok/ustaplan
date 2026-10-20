@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { updateCustomer } from "@/actions/customers";
-import { BackLink } from "@/components/common/back-link";
 import { PageHeader } from "@/components/common/page-header";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
@@ -30,8 +29,7 @@ async function EditCustomer({ params }: { params: PageProps<"/musteriler/[id]/du
 
   return (
     <>
-      <BackLink href={`/musteriler/${customer.id}`} />
-      <PageHeader title="Müşteriyi düzenle" />
+      <PageHeader backHref={`/musteriler/${customer.id}`} title="Müşteriyi düzenle" />
       <section className="rounded-2xl border border-border bg-surface p-4">
         <CustomerForm
           action={updateCustomer.bind(null, customer.id)}

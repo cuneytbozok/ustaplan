@@ -68,3 +68,9 @@ export const JOB_FIELD_LABELS: Record<string, string> = {
   agreed_price: "Anlaşılan fiyat",
   estimated_price: "Tahmini fiyat",
 };
+
+/** Field hints that explain the two prices (Yeni iş and İşi düzenle). */
+export const PRICE_HINTS = {
+  agreed: "Müşteriyle kararlaştırdığın son tutar.",
+  estimated: "İşin sana göre yaklaşık tutarı. Müşteriye hiçbir zaman gösterilmez.",
+} as const;

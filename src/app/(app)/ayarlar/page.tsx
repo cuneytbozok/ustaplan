@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LogOut } from "lucide-react";
 import { LogoutForm } from "@/components/pwa/logout-form";
-import { BackLink } from "@/components/common/back-link";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { InstallGuide } from "@/components/pwa/install-guide";
@@ -17,8 +16,7 @@ export const metadata: Metadata = { title: "Ayarlar" };
 export default function SettingsPage() {
   return (
     <>
-      <BackLink href="/bugun" />
-      <PageHeader title="Ayarlar" />
+      <PageHeader backHref="/bugun" title="Ayarlar" />
 
       <Section title="Profil">
         <Suspense fallback={<ListSkeleton rows={1} />}>

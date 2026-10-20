@@ -16,9 +16,10 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = { title: "İşler" };
 
 const FILTERS = {
-  acik: { label: "Açık", statuses: [...OPEN_JOB_STATUSES], order: "updated_at" },
-  tamamlanan: { label: "Tamamlanan", statuses: ["completed"], order: "completed_at" },
-  iptal: { label: "İptal", statuses: ["cancelled"], order: "cancelled_at" },
+  // dateLabel names the date each card shows (the one the list is sorted by).
+  acik: { label: "Açık", statuses: [...OPEN_JOB_STATUSES], order: "updated_at", dateLabel: "Güncellendi" },
+  tamamlanan: { label: "Tamamlanan", statuses: ["completed"], order: "completed_at", dateLabel: "Tamamlandı" },
+  iptal: { label: "İptal", statuses: ["cancelled"], order: "cancelled_at", dateLabel: "İptal edildi" },
 } as const;
 type FilterKey = keyof typeof FILTERS;
 
@@ -125,11 +126,15 @@ async function JobList({ searchParams }: { searchParams: PageProps<"/isler">["se
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-semibold text-ink">{job.title}</p>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {job.customers?.name} · {formatShortDate(date)}
-                    </p>
+                    <p className="truncate text-sm text-muted-foreground">{job.customers?.name}</p>
                   </div>
-                  <JobStatusBadge status={job.status} />
+                  {/* Status, and under it what the date means ("Güncellendi 18 Eki"). */}
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <JobStatusBadge status={job.status} />
+                    <span className="text-xs whitespace-nowrap text-muted-foreground">
+                      {filter.dateLabel} {formatShortDate(date)}
+                    </span>
+                  </div>
                 </Link>
               </li>
             );

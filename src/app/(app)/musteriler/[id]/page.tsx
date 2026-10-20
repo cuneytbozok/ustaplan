@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Müşteri" };
 export default function CustomerPage({ params }: PageProps<"/musteriler/[id]">) {
   return (
     <>
-      <BackLink href="/musteriler" />
+      <BackLink href="/musteriler" className="-mt-2 -mb-3" />
       <Suspense fallback={<ListSkeleton rows={3} />}>
         <CustomerDetail params={params} />
       </Suspense>
@@ -54,7 +54,7 @@ async function CustomerDetail({ params }: { params: PageProps<"/musteriler/[id]"
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight break-words text-ink">{customer.name}</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{customer.phone ? formatPhone(customer.phone) : "Telefon kayıtlı değil"}</p>
+            {customer.phone ? <p className="mt-0.5 text-sm text-muted-foreground">{formatPhone(customer.phone)}</p> : null}
           </div>
           <Link
             href={`/musteriler/${customer.id}/duzenle`}
@@ -85,7 +85,13 @@ async function CustomerDetail({ params }: { params: PageProps<"/musteriler/[id]"
             </a>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">Arama ve WhatsApp için telefon numarası ekle.</p>
+          <Link
+            href={`/musteriler/${customer.id}/duzenle`}
+            className="mt-3 flex h-11 w-fit items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-primary hover:bg-primary-soft"
+          >
+            <Plus className="size-4" aria-hidden />
+            Telefon numarası ekle
+          </Link>
         )}
 
         {customer.private_note ? (

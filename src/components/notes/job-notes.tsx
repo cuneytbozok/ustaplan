@@ -3,14 +3,14 @@
 import { useState, useTransition } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { addJobNote, deleteJobNote, updateJobNote } from "@/actions/notes";
-import { inputClassName } from "@/components/common/form-field";
+import { AutoGrowTextarea } from "@/components/common/auto-grow-textarea";
 import type { ActionResult } from "@/lib/action-result";
 import { formatShortDate, formatTime } from "@/lib/domain/time";
-import { cn } from "@/lib/utils";
 
 export type JobNote = { id: string; body: string; createdAt: string; editedAt: string | null };
 
 const MAX_LENGTH = 4000;
+export const NOTE_PLACEHOLDER = "Ölçüler, gereken malzemeler, hatırlatmalar…";
 const secondaryButton = "h-11 rounded-xl border border-border bg-surface text-sm font-medium text-ink hover:bg-muted";
 const primaryButton = "h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-70";
 
@@ -39,26 +39,27 @@ export function NoteEditor({
   onSave,
   onCancel,
   maxLength = MAX_LENGTH,
+  placeholder = NOTE_PLACEHOLDER,
 }: {
   initial: string;
   label: string;
   onSave: (text: string) => Promise<ActionResult>;
   onCancel: () => void;
   maxLength?: number;
+  placeholder?: string;
 }) {
   const [text, setText] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   return (
     <div className="flex flex-col gap-2">
-      <textarea
+      <AutoGrowTextarea
         aria-label={label}
         value={text}
         onChange={(event) => setText(event.target.value)}
-        rows={3}
         maxLength={maxLength}
+        placeholder={placeholder}
         autoFocus
-        className={cn(inputClassName, "h-auto py-2.5")}
       />
       <ErrorText error={error} />
       <div className="grid grid-cols-2 gap-2">
@@ -191,10 +192,10 @@ export function EditableNote({
 }
 
 /** Dashed "+ Not ekle" button that opens an editor. */
-export function AddNote({ onSave, maxLength }: { onSave: (text: string) => Promise<ActionResult>; maxLength?: number }) {
+export function AddNote({ onSave, maxLength, placeholder }: { onSave: (text: string) => Promise<ActionResult>; maxLength?: number; placeholder?: string }) {
   const [adding, setAdding] = useState(false);
   return adding ? (
-    <NoteEditor initial="" label="Yeni not" onSave={onSave} onCancel={() => setAdding(false)} maxLength={maxLength} />
+    <NoteEditor initial="" label="Yeni not" onSave={onSave} onCancel={() => setAdding(false)} maxLength={maxLength} placeholder={placeholder} />
   ) : (
     <button
       type="button"

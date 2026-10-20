@@ -123,11 +123,10 @@ async function Today() {
               return (
                 <li key={a.id} className={cardClass}>
                   <Link href={`/isler/${job?.id}`} className="-m-1 flex items-start gap-3 rounded-xl p-1 hover:bg-muted">
-                    <div className="w-12 shrink-0 text-sm font-bold text-primary">
-                      {formatTime(a.starts_at)}
-                      <span className="block text-xs font-normal text-muted-foreground">{formatTime(a.ends_at)}</span>
-                    </div>
                     <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold whitespace-nowrap text-primary tabular-nums">
+                        {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
+                      </p>
                       <p className="truncate text-base font-semibold text-ink">{job?.customers?.name}</p>
                       <p className="truncate text-sm text-muted-foreground">{job?.title}</p>
                     </div>
@@ -177,10 +176,15 @@ async function Today() {
                     <p className="truncate text-base font-semibold text-ink">{job.title}</p>
                     <p className="truncate text-sm text-muted-foreground">{job.customers?.name}</p>
                     <p className={overdue ? "mt-1 text-sm font-medium text-warning" : "mt-1 text-sm text-muted-foreground"}>
-                      {overdue ? `Gecikmiş ziyaret · ${formatShortDate(overdue.starts_at)} ${formatTime(overdue.starts_at)}` : "Planlı randevu yok"}
+                      {overdue ? `Randevu: ${formatShortDate(overdue.starts_at)}, ${formatTime(overdue.starts_at)}` : "Planlı randevu yok"}
                     </p>
                   </div>
-                  <JobStatusBadge status={job.status} />
+                  {/* An overdue visit is the thing to act on: show that instead of the job status ("Planlandı" + "Gecikmiş" read as a contradiction). */}
+                  {overdue ? (
+                    <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-warning/12 px-2.5 text-xs font-semibold text-warning">Ziyaret gecikti</span>
+                  ) : (
+                    <JobStatusBadge status={job.status} />
+                  )}
                 </Link>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {overdue ? (
