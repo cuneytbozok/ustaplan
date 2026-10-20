@@ -131,19 +131,6 @@ export function EditJobForm({ action, customers, initial, doneHref }: { action: 
           className={inputClassName}
         />
       </FormField>
-      <FormField id="privateNote" label="Özel not" hint="Sadece sen görürsün." error={errors.privateNote}>
-        <textarea
-          key={`o-${key}`}
-          id="privateNote"
-          name="privateNote"
-          rows={3}
-          maxLength={4000}
-          defaultValue={values.privateNote}
-          aria-invalid={Boolean(errors.privateNote)}
-          aria-describedby={describedBy("privateNote", errors.privateNote, "Sadece sen görürsün.")}
-          className={cn(inputClassName, "h-auto py-2.5")}
-        />
-      </FormField>
 
       {state && !state.ok ? <FormStatus state={state} success="" /> : null}
 

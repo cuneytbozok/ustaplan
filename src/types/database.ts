@@ -359,6 +359,47 @@ export type Database = {
           },
         ]
       }
+      job_notes: {
+        Row: {
+          author: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          job_id: string
+          owner_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          author?: string
+          body: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          job_id: string
+          owner_user_id?: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string
+          body?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          job_id?: string
+          owner_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_notes_owner_user_id_job_id_fkey"
+            columns: ["owner_user_id", "job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["owner_user_id", "id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           address_id: string | null
@@ -374,7 +415,6 @@ export type Database = {
           estimated_price: number | null
           id: string
           owner_user_id: string
-          private_note: string | null
           search_key: string | null
           share_enabled: boolean
           share_version: number
@@ -397,7 +437,6 @@ export type Database = {
           estimated_price?: number | null
           id?: string
           owner_user_id: string
-          private_note?: string | null
           search_key?: string | null
           share_enabled?: boolean
           share_version?: number
@@ -420,7 +459,6 @@ export type Database = {
           estimated_price?: number | null
           id?: string
           owner_user_id?: string
-          private_note?: string | null
           search_key?: string | null
           share_enabled?: boolean
           share_version?: number
@@ -616,7 +654,7 @@ export type Database = {
           p_job_id: string
           p_new_customer_name?: string
           p_new_customer_phone?: string
-          p_private_note?: string
+          p_notes?: string[]
           p_show_price?: boolean
           p_starts_at?: string
           p_title: string

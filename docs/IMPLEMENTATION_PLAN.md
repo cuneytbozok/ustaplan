@@ -202,6 +202,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
 - **Customer:**
   - `POST /api/t/[token]/photos` (≤ 2 MB). The handler checks magic bytes, the job state and rate limits, then the admin client stores the object, inserts the row and adds the in-app notification. If the row insert fails, the object is removed.
   - Customers delete only `origin='customer'` media on that job. Viewing goes through the proxy.
+- **Written notes (N-1):** `job_notes`, several per job. Artisan notes are private, added/edited/deleted on the job page (Server Actions, plain RLS CRUD; delete asks first; "Düzenlendi" after an edit). Customer notes come from the customer page (N.3) and are read-only for the artisan, shown in a separate "Müşteri notları" card.
 - **Voice notes:** `MediaRecorder` (`audio/mp4` on iOS, `webm/opus` elsewhere), 60 s cap, artisan-only, played with a native `<audio>` player. Unsupported devices see an explanation.
 
 ---
@@ -295,7 +296,7 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
   - Takvim: day and week.
   - İşler: search + Açık / Tamamlanan / İptal.
   - Yeni iş.
-  - İş detayı: status, customer actions, appointments, request card, price + history, photos, voice notes, private note, history, link.
+  - İş detayı: status, customer actions, appointments, request card, price + history, photos, notes (Notlarım: written + voice; Müşteri notları), history, link.
   - Müşteriler and customer detail.
   - Bildirimler.
   - Ayarlar: profile, notifications, password, install guide, logout.
@@ -488,7 +489,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 
 | ID | Rule | ⚑ |
 | --- | --- | --- |
-| P-1 | `jobs.description` dropped; `title` is customer-visible (labelled), `private_note` is private | ⚑ |
+| P-1 | `jobs.description` dropped; `title` is customer-visible (labelled), `private_note` is private (replaced by `job_notes`, N-1) | ⚑ |
 | P-2 | Cancellation cancels only appointments that haven't ended | ⚑ |
 | P-3 | No job deletion in the app; erasure via the admin script | ⚑ |
 | P-4 | Completing a job cancels its future appointments after confirmation | ⚑ |
@@ -523,6 +524,7 @@ Possible reordering: M5.5–M5.6 (PWA + test push) depend only on M1 and could m
 | A-6 | **M6.3:** a deactivated artisan's refresh is refused at once, but an already-issued access token stays valid until it expires (≤ 1 h), because the app checks JWTs locally with `getClaims()`. Accepted; the confirmation text says so. The admin changes their own password at `/admin/sifre` (the shared Ayarlar form) | |
 | L-1 | **Owner, 2026-10-18:** public landing page at `/` for signed-out visitors (`src/app/page.tsx`, static; illustration drawn with the app tokens in `components/landing/phone-preview.tsx`). Sections: hero, features, how it works, customer link, FAQ, login. No signup and no contact button (pilot accounts by invitation); FAQ says free during the pilot. *sen* tone like the artisan app. The only indexable page (`robots: index`); the root layout stays `noindex`. Proxy: signed-out visitors may open `/` and `/giris`; sessions on `/` go to `/bugun` or `/admin` | |
 | L-2 | **Owner, 2026-10-18:** SEO for `/` (canonical from `APP_BASE_URL`, Open Graph + share image `(landing)/opengraph-image.tsx` scoped to the landing route group, Twitter card, JSON-LD SoftwareApplication + FAQPage) and a **search-visibility switch** at `/admin/site`, stored in `app_settings`, **hidden by default**. Hidden: `/` is `noindex, nofollow`, `robots.txt` disallows everything, `sitemap.xml` is empty. Visible: `/` is indexable, `robots.txt` allows `/` and disallows the app paths, `sitemap.xml` lists `/`. Every other page stays `noindex` (root layout). Read through `'use cache'` + `cacheTag('site-settings')`; the admin action calls `updateTag`, so changes apply at once; any read error means hidden | |
+| N-1 | **Owner, 2026-10-20:** job notes. (1) Several private written notes per job (`job_notes`, author `artisan`): add, edit ("Düzenlendi"), delete with confirmation; the old `jobs.private_note` was copied into the list and dropped; one "Notlarım" card holds written and voice notes. (2) **N.2:** written + voice notes in Yeni iş → Diğer detaylar; written notes go into `create_job(p_notes)` in the same transaction; recordings stay in browser memory until the job exists, then upload; a failed upload offers retry or continue without losing the job; leaving the form discards them; without recordings the form still redirects at once. (3) **N.3:** customers add/edit/delete their own written notes (≤ 1000, no voice) on `/t/<token>` **only while the job is open** (afterwards read-only); plain admin CRUD in `/api/t/[token]/notes` (Origin, token, zod, row-counted rate limits, `note_*` audit events); artisan sees them in "Müşteri notları" without edit/delete; `customer_note` notification (one per job per day, first one pushed). Customer notes never include artisan notes; no new RPC | ⚑ |
 | A-5 | **v3.2:** no admin audit table; Supabase's auth audit log records user creation, password updates and bans. Temporary passwords are shown once and never logged or stored | |
 | T-10 | **M0.3 (owner):** the dev project is in Ireland (`eu-west-1`), not Frankfurt; fake data only, so accepted. Vercel functions should run near it (M0.4). **Prod (M6.7) stays in Frankfurt.** | |
 

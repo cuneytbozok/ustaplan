@@ -1,41 +1,37 @@
 # Handover — UstaPlan
 
-_Rewritten at the end of every task. Last updated: 2026-10-18._
+_Rewritten at the end of every task. Last updated: 2026-10-20._
 
 ## State in one line
-Admin panel **M6.1–M6.4** and **M6.6** are complete and deployed. **M6.5** (phone smoke pass) and **M6.7** (prod) are blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
+Owner request **job notes** (plan N-1) split into N.1–N.3. **N.1 is complete and committed locally, not pushed.** M6.5 and M6.7 stay blocked on the owner. Open owner checks: **D1–D9** (PROGRESS).
 
 ## Last completed task
-**L.2** (owner request): SEO for `/` + search-visibility switch at `/admin/site` (migration `site_settings` applied to dev; hidden by default), security-check 298/298. Before that **L.1** (owner request): public landing page at `/` (plan L-1), security-check 290/290. Before that **M6.6**: `backup.sh` (+ `backup-storage.ts` / `restore-storage.ts`), `export-customer-data.ts`, `delete-customer-data.ts`, `docs/setup/RUNBOOK.md`.
+**N.1**: migration `20261020100832_job_notes.sql` (applied to dev with approval): `job_notes` table + RLS, old `jobs.private_note` copied in and the column dropped, `create_job(p_notes text[])`, `note_*` events and `customer_note` category (for N.3). Job page has one **Notlarım** card (written notes with add/edit/"Düzenlendi"/delete-with-confirmation, plus the voice notes as before). `actions/notes.ts`, `components/notes/job-notes.tsx`.
 
 ## Current or interrupted task
-None. M6.5 and M6.7 are **Blocked** (owner phones; KVKK review + prod approvals).
+None. **N.2** (notes in Yeni iş, voice recordings kept in memory and uploaded after create, retry on failure) and **N.3** (customer notes on `/t/<token>`, open jobs only; "Müşteri notları"; `customer_note` notification) are Pending; the design is in plan §15 N-1.
 
-## Key decisions (still relevant)
-- **Admin panel (plan v3.2, §4.1, A-1…A-6):** `/admin` (English route by owner choice, Turkish copy). One admin = auth user with `app_metadata.role = admin` and no profile. Gate: proxy (non-admins get a real 404; aal1 admins → `/admin/mfa`; admins kept out of artisan routes) + `getAdminGate`/`requireAdmin` in every page (pages render in parallel with layouts) + every admin action checks role + aal2 itself. Counts only, never customer data. Deactivate = ban + delete push subscriptions; refresh refused at once, an issued access token works ≤ 1 h (`getClaims` is local). Temporary passwords shown once, never logged.
-- **Account logic** lives in `lib/admin/accounts.ts` (artisans only), shared by the panel and the scripts. **Figures** in `lib/admin/stats.ts` (paged reads past the 1000-row cap; Istanbul day/ISO week/month).
-- **Security check** now also covers the admin panel (`scripts/security-check-admin.ts`): real ssr cookies over HTTP, a temporary fake admin with TOTP enrolled by the script, and server actions called by their ids from `.next/server/server-reference-manifest.json`, so **build before running it**.
-- **Data scripts** refuse output inside the repository; erasure = objects → jobs → customer, idempotent. Closed accounts' files are removed by the nightly cleanup.
-- Earlier decisions (reschedule, freshness T-14, service worker, push flow, dispatcher, customer links, Cache Components, browser-test quirks) are unchanged; see plan §15 and PROGRESS.
-- **Credentials rule for agents:** test credentials only on local hosts; the deployed `vercel.app` login is the owner's check (D8).
+## Key decisions
+- N-1 (owner, 2026-10-20): migrate and remove the old single note; customers may write/edit/delete notes only while the job is open. Customer notes = plain admin CRUD in route handlers (no new RPC), rate limits counted from rows, `note_*` audit events without text.
+- Until N.2, Yeni iş still has one "Özel not" field; it is saved as the first note through `p_notes`.
+- Earlier decisions (admin panel, customer links, push, reschedule, etc.) unchanged; see plan §15.
 
 ## Tests executed
-security-check **288/288** against a local production build (:3200, after the last code change); test 31/31; typecheck, lint, build pass. Overview figures matched independent Postgres counts. Data scripts dry-run on dev. Deployed `a78dc61`: `/admin` serves no-store + noindex + login redirect.
+security-check **317/317** (local production build :3200); typecheck, lint, test 31/31, build pass. Browser smoke at 360 px with fake account C (fake job/customer deleted afterwards).
 
 ## Known bugs and blockers
-- KVKK legal review: open, blocks M6.7. Leaked-password protection decision before the pilot.
-- `npm audit`: high advisories only in dev tooling; accepted.
-- Vercel MCP has no access to this team scope and there's no local Vercel CLI; deploys are verified over HTTP.
-- `APP_BASE_URL` exists only for Production on Vercel.
+- **Deploy gap:** the live app (old code) still selects `jobs.private_note`, which no longer exists in dev → job detail/edit pages on ustaplan.vercel.app fail until the N.1 commit is pushed. Push needs owner approval.
+- Dev data contains an old fake "hack · hack" job with a pending date request for account C (left by an earlier check run on 2026-10-18); harmless.
+- KVKK review open (blocks M6.7); `npm audit` dev-tooling advisories accepted; no Vercel CLI/MCP access (deploys verified over HTTP).
 
 ## Environment
-Dev Supabase `xytwwudbnykackuxfeif` (Ireland), Vercel `ustaplan` → https://ustaplan.vercel.app (Production on dev data). Dev now also has a fake artisan **Test Usta D** (`usta-d@ustaplan.test`, created through the panel; password not kept). No admin account exists in dev (the fake test admin was deleted); the owner creates theirs (D8).
+Dev Supabase `xytwwudbnykackuxfeif` (Ireland), Vercel `ustaplan` → https://ustaplan.vercel.app (Production on dev data).
 
 ## Uncommitted changes
-None after the M6 wrap-up commit (pushed).
+None. The N.1 commit is local only (not pushed).
 
 ## Exact next action
-D8 done (owner, TOTP works, password changed). KVKK, backups (D9) and other launch items are parked by the owner in `docs/setup/PRE_LAUNCH_CHECKLIST.md`, to do at the end. Next with the owner: the M6.5 scenarios S1–S11 + D1–D7 on the phones. Report failures; fixes go into the task they came from. M6.7 only after the KVKK review, with approval for each external step.
+Ask the owner to approve `git push` of N.1 (closes the deploy gap). Then, on instruction, start **N.2**.
 
 ## Resume commands
 ```bash

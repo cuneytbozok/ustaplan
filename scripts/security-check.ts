@@ -16,6 +16,8 @@
  * M6.2: admin panel (scripts/security-check-admin.ts): anon/artisan locked
  * out, no self-granted role, aal1 admin only reaches the code page, wrong TOTP
  * refused, aal2 opens the panel, no-store/noindex, admin session sees no rows.
+ * N.1: job_notes isolation; the artisan can't write customer notes or the
+ * author column; create_job notes (limit, owner); jobs.private_note is gone.
  *
  *   npm run security-check
  *
@@ -116,6 +118,9 @@ async function main() {
     bMedia: randomUUID(),
     cJob: randomUUID(),
     dJob: randomUUID(),
+    eJob: randomUUID(),
+    note: randomUUID(),
+    customerNote: randomUUID(),
   };
   const objectPath = `${a.id}/${ids.job}/${ids.media}.jpg`;
   const sharedPath = `${a.id}/${ids.job}/${ids.sharedMedia}.jpg`;
@@ -129,7 +134,7 @@ async function main() {
     const end = new Date(start.getTime() + 3600 * 1000);
     await must("customer", admin.from("customers").insert({ id: ids.customer, owner_user_id: a.id, name: `${tag} müşteri`, phone: "+905550000099" }));
     await must("address", admin.from("customer_addresses").insert({ id: ids.address, owner_user_id: a.id, customer_id: ids.customer, address_text: `${tag} adres` }));
-    await must("job", admin.from("jobs").insert({ id: ids.job, owner_user_id: a.id, customer_id: ids.customer, address_id: ids.address, title: `${tag} iş`, status: "scheduled", estimated_price: 4321.99, private_note: `${tag} gizlinot` }));
+    await must("job", admin.from("jobs").insert({ id: ids.job, owner_user_id: a.id, customer_id: ids.customer, address_id: ids.address, title: `${tag} iş`, status: "scheduled", estimated_price: 4321.99 }));
     await must("appointment", admin.from("appointments").insert({ id: ids.appointment, owner_user_id: a.id, job_id: ids.job, starts_at: start.toISOString(), ends_at: end.toISOString() }));
     await must("request", admin.from("appointment_requests").insert({ id: ids.request, owner_user_id: a.id, job_id: ids.job, appointment_id: ids.appointment, requested_starts_at: end.toISOString(), requested_ends_at: new Date(end.getTime() + 3600 * 1000).toISOString() }));
     await must("storage object", admin.storage.from("job-images").upload(objectPath, jpeg, { contentType: "image/jpeg" }));
@@ -140,6 +145,8 @@ async function main() {
     await must("shared object", admin.storage.from("job-images").upload(sharedPath, jpeg, { contentType: "image/jpeg" }));
     await must("shared media", admin.from("job_media").insert({ id: ids.sharedMedia, owner_user_id: a.id, job_id: ids.job, kind: "image", origin: "artisan", visibility: "shared", storage_bucket: "job-images", storage_path: sharedPath, mime_type: "image/jpeg", size_bytes: jpeg.length }));
     await must("audio media", admin.from("job_media").insert({ id: ids.audio, owner_user_id: a.id, job_id: ids.job, kind: "audio", origin: "artisan", visibility: "private", storage_bucket: "job-audio", storage_path: `${a.id}/${ids.job}/${ids.audio}.m4a`, mime_type: "audio/mp4", size_bytes: 10, duration_seconds: 1 }));
+    await must("note", admin.from("job_notes").insert({ id: ids.note, owner_user_id: a.id, job_id: ids.job, body: `${tag} gizlinot` }));
+    await must("customer note", admin.from("job_notes").insert({ id: ids.customerNote, owner_user_id: a.id, job_id: ids.job, author: "customer", body: `${tag} müşteri notu` }));
     await must("B customer", admin.from("customers").insert({ id: ids.bCustomer, owner_user_id: b.id, name: `${tag} B müşteri` }));
     await must("B job", admin.from("jobs").insert({ id: ids.bJob, owner_user_id: b.id, customer_id: ids.bCustomer, title: `${tag} B iş` }));
     await must("B shared media", admin.from("job_media").insert({ id: ids.bMedia, owner_user_id: b.id, job_id: ids.bJob, kind: "image", origin: "artisan", visibility: "shared", storage_bucket: "job-images", storage_path: `${b.id}/${ids.bJob}/${ids.bMedia}.jpg`, mime_type: "image/jpeg", size_bytes: jpeg.length }));
@@ -150,6 +157,7 @@ async function main() {
       ["profiles", a.id], ["customers", ids.customer], ["customer_addresses", ids.address], ["jobs", ids.job],
       ["appointments", ids.appointment], ["appointment_requests", ids.request], ["job_media", ids.media],
       ["job_events", ids.event], ["notifications", ids.notification], ["push_subscriptions", ids.subscription],
+      ["job_notes", ids.note],
     ];
     for (const [table, id] of own) {
       const r = await a.client.from(table).select("id").eq("id", id);
@@ -173,11 +181,13 @@ async function main() {
       ["jobs", ids.job, { title: "hack" }],
       ["job_media", ids.media, { visibility: "shared" }],
       ["notifications", ids.notification, { read_at: new Date().toISOString() }],
+      // Keeps the tag in the text: the customer page checks below look for it.
+      ["job_notes", ids.note, { body: `${tag} gizlinot (düzenlendi)` }],
     ];
     for (const [table, id, patch] of updates) {
       expectNoEffect(`B cannot update A's ${table}`, await b.client.from(table).update(patch).eq("id", id).select("id"));
     }
-    for (const table of ["customers", "customer_addresses", "push_subscriptions", "jobs", "job_media", "job_events", "notifications"]) {
+    for (const table of ["customers", "customer_addresses", "push_subscriptions", "jobs", "job_media", "job_events", "notifications", "job_notes"]) {
       const id = Object.fromEntries(own)[table];
       expectNoEffect(`B cannot delete A's ${table}`, await b.client.from(table).delete().eq("id", id).select("id"));
     }
@@ -201,6 +211,8 @@ async function main() {
     expectRefused("B cannot add an address to A's customer", await b.client.from("customer_addresses").insert({ customer_id: ids.customer, address_text: "x" }));
     expectRefused("B cannot add media to A's job", await b.client.from("job_media").insert({ job_id: ids.job, kind: "image", origin: "artisan", visibility: "private", storage_bucket: "job-images", storage_path: `${b.id}/${ids.job}/x.jpg`, mime_type: "image/jpeg", size_bytes: 10 }));
     expectRefused("B cannot subscribe push for A", await b.client.from("push_subscriptions").insert({ owner_user_id: a.id, endpoint: `https://push.invalid/${tag}-b`, p256dh: "x", auth: "y" }));
+    expectRefused("B cannot add a note to A's job", await b.client.from("job_notes").insert({ job_id: ids.job, body: "x" }));
+    expectRefused("B cannot add a note owned by A", await b.client.from("job_notes").insert({ owner_user_id: a.id, job_id: ids.job, body: "x" }));
     expectRefused("B cannot point its job at A's customer", await b.client.from("jobs").update({ customer_id: ids.customer }).eq("id", ids.bJob).select("id"));
 
     // ---- Anon (signed-out visitor) ----
@@ -229,6 +241,18 @@ async function main() {
     expectPermissionDenied("A cannot change notifications.payload", await a.client.from("notifications").update({ payload: {} }).eq("id", ids.notification));
     expectPermissionDenied("A cannot change job_media.origin", await a.client.from("job_media").update({ origin: "customer" }).eq("id", ids.media));
     expectRefused("A cannot insert customer-origin media", await a.client.from("job_media").insert({ job_id: ids.job, kind: "image", origin: "customer", visibility: "shared", storage_bucket: "job-images", storage_path: `${a.id}/${ids.job}/c.jpg`, mime_type: "image/jpeg", size_bytes: 10 }));
+    // Customer notes (N-1) are written by the server only; the artisan reads them.
+    const aCustomerNote = await a.client.from("job_notes").select("id").eq("id", ids.customerNote);
+    record("control: A sees the customer's note on own job", rows(aCustomerNote) === 1, aCustomerNote.error?.message ?? `${rows(aCustomerNote)} rows`);
+    expectNoEffect("A cannot edit the customer's note", await a.client.from("job_notes").update({ body: "hack" }).eq("id", ids.customerNote).select("id"));
+    expectNoEffect("A cannot delete the customer's note", await a.client.from("job_notes").delete().eq("id", ids.customerNote).select("id"));
+    expectRefused("A cannot insert a customer-authored note", await a.client.from("job_notes").insert({ job_id: ids.job, author: "customer", body: "x" }));
+    expectPermissionDenied("A cannot change job_notes.author", await a.client.from("job_notes").update({ author: "customer" }).eq("id", ids.note));
+    expectPermissionDenied("A cannot move a note to another job", await a.client.from("job_notes").update({ job_id: ids.bJob }).eq("id", ids.note));
+    const customerNoteAfter = await admin.from("job_notes").select("body").eq("id", ids.customerNote).single();
+    record("the customer's note is unchanged", (customerNoteAfter.data as { body: string } | null)?.body === `${tag} müşteri notu`, JSON.stringify(customerNoteAfter.data));
+    const oldColumn = await admin.from("jobs").select("private_note").limit(1);
+    record("jobs.private_note no longer exists", Boolean(oldColumn.error), "column still readable");
     expectRefused("A cannot show an estimate-only price", await a.client.from("jobs").update({ agreed_price: null, show_price_to_customer: true }).eq("id", ids.job).select("id"));
 
     // ---- Job RPCs (M2.1): owner-only, never anon ----
@@ -242,6 +266,16 @@ async function main() {
     record("B create_job with A's customer → customer_not_found", rpcResult(bCreate) === "customer_not_found", bCreate.error?.message ?? rpcResult(bCreate));
     const bReuse = await b.client.rpc("create_job", { p_job_id: ids.job, p_title: "x", p_new_customer_name: "x" });
     record("B create_job reusing A's job id → invalid_input", rpcResult(bReuse) === "invalid_input", bReuse.error?.message ?? rpcResult(bReuse));
+    const tooMany = await a.client.rpc("create_job", { p_job_id: randomUUID(), p_title: "x", p_customer_id: ids.customer, p_notes: Array.from({ length: 11 }, () => "n") });
+    record("create_job with 11 notes → invalid_input", rpcResult(tooMany) === "invalid_input", tooMany.error?.message ?? rpcResult(tooMany));
+    const withNotes = await a.client.rpc("create_job", { p_job_id: ids.eJob, p_title: `${tag} notlu iş`, p_customer_id: ids.customer, p_notes: ["  bir  ", "", "iki"] });
+    const createdNotes = await a.client.from("job_notes").select("body, author").eq("job_id", ids.eJob).order("created_at");
+    record("create_job stores the non-empty notes in order, as the artisan's",
+      rpcResult(withNotes) === "ok" && JSON.stringify(createdNotes.data) === JSON.stringify([{ body: "bir", author: "artisan" }, { body: "iki", author: "artisan" }]),
+      withNotes.error?.message ?? JSON.stringify(createdNotes.data));
+    const repeated = await a.client.rpc("create_job", { p_job_id: ids.eJob, p_title: `${tag} notlu iş`, p_customer_id: ids.customer, p_notes: ["üç"] });
+    const notesAfterRepeat = await admin.from("job_notes").select("id", { count: "exact", head: true }).eq("job_id", ids.eJob);
+    record("a repeated create_job adds no notes", rpcResult(repeated) === "ok" && notesAfterRepeat.count === 2, `${notesAfterRepeat.count} notes`);
     expectPermissionDenied("anon cannot execute create_job", await anon.rpc("create_job", { p_job_id: randomUUID(), p_title: "x", p_new_customer_name: "x" }));
     expectPermissionDenied("anon cannot execute change_job_status", await anon.rpc("change_job_status", { p_job_id: ids.job, p_action: "cancel" }));
     // PostgREST doesn't expose trigger functions at all (PGRST202); either way it must not run.
@@ -745,7 +779,7 @@ async function main() {
     await admin.storage.from("job-images").remove([objectPath, sharedPath, `${a.id}/${ids.job}/ctl.jpg`, `${a.id}/${ids.job}/b.jpg`, `${b.id}/${ids.job}/b.jpg`, `${a.id}/${ids.job}/anon.jpg`]);
     await admin.from("push_subscriptions").delete().like("endpoint", `https://push.invalid/${tag}%`);
     // A's job has accepted reschedules by now; it must still cascade-delete (account deletion).
-    await admin.from("jobs").delete().in("id", [ids.cJob, ids.dJob]);
+    await admin.from("jobs").delete().in("id", [ids.cJob, ids.dJob, ids.eJob]);
     const deletedJobs = await admin.from("jobs").delete().in("id", [ids.job, ids.bJob]).select("id");
     record("jobs with accepted reschedules can be deleted (cascade)", deletedJobs.data?.length === 2, deletedJobs.error?.message ?? `${deletedJobs.data?.length} deleted`);
     await admin.from("customers").delete().in("id", [ids.customer, ids.bCustomer]);

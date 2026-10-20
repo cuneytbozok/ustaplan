@@ -25,10 +25,10 @@ async function main() {
     console.log(`No customer ${id.data}: nothing to delete (already erased?).`);
     return;
   }
-  const { customer, addresses, jobs, appointments, requests, media, events, notifications, objects } = footprint;
+  const { customer, addresses, jobs, appointments, requests, media, notes, events, notifications, objects } = footprint;
   console.log(`Customer ${customer.id} (artisan ${customer.owner_user_id}):`);
   console.log(`  addresses ${addresses.length}, jobs ${jobs.length}, appointments ${appointments.length}, requests ${requests.length}`);
-  console.log(`  media rows ${media.length}, storage objects ${objects.length}, events ${events.length}, notifications ${notifications.length}`);
+  console.log(`  media rows ${media.length}, storage objects ${objects.length}, notes ${notes.length}, events ${events.length}, notifications ${notifications.length}`);
 
   if (!values.confirm) {
     console.log("\nDry run: nothing changed. Re-run with --confirm to delete all of the above.");

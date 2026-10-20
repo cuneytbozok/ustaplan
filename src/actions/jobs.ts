@@ -97,9 +97,10 @@ export async function createJob(_previous: NewJobState, formData: FormData): Pro
     p_new_customer_name: input.customerMode === "new" ? input.newCustomerName : undefined,
     p_new_customer_phone: phone ?? undefined,
     p_address_id: addressId ?? undefined,
-    p_private_note: input.privateNote || undefined,
     p_estimated_price: estimated ?? undefined,
     p_agreed_price: agreed ?? undefined,
+    // The first private note is written in the same transaction (plan N-1).
+    p_notes: input.privateNote ? [input.privateNote] : undefined,
     p_show_price: input.showPrice,
     p_starts_at: slot?.start.toISOString(),
     p_ends_at: slot?.end.toISOString(),
@@ -125,11 +126,10 @@ export type EditJobValues = {
   agreedPrice: string;
   estimatedPrice: string;
   showPrice: boolean;
-  privateNote: string;
 };
 export type EditJobState = (ActionResult & { values: EditJobValues }) | null;
 
-const editSchema = schema.pick({ customerId: true, title: true, addressId: true, agreedPrice: true, estimatedPrice: true, showPrice: true, privateNote: true });
+const editSchema = schema.pick({ customerId: true, title: true, addressId: true, agreedPrice: true, estimatedPrice: true, showPrice: true });
 
 export async function updateJob(jobId: string, _previous: EditJobState, formData: FormData): Promise<EditJobState> {
   const text = (key: string) => String(formData.get(key) ?? "");
@@ -140,7 +140,6 @@ export async function updateJob(jobId: string, _previous: EditJobState, formData
     agreedPrice: text("agreedPrice"),
     estimatedPrice: text("estimatedPrice"),
     showPrice: formData.get("showPrice") === "on",
-    privateNote: text("privateNote"),
   };
   const fail = (error: string, fieldErrors?: Record<string, string>): EditJobState => ({ ok: false, error, fieldErrors, values });
   if (!isUuid(jobId)) return fail("İş bulunamadı.");
@@ -172,7 +171,6 @@ export async function updateJob(jobId: string, _previous: EditJobState, formData
       agreed_price: agreed,
       estimated_price: estimated,
       show_price_to_customer: input.showPrice,
-      private_note: input.privateNote || null,
     })
     .eq("id", jobId)
     .select("id");

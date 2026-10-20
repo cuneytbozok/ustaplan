@@ -16,7 +16,7 @@ export async function customerFootprint(admin: Admin, customerId: string) {
     if (result.error) fail(`Could not read ${table}: ${result.error.message}`);
     return result.data as Record<string, unknown>[];
   };
-  const byJobs = async (table: "appointments" | "appointment_requests" | "job_media" | "job_events" | "notifications", jobIds: string[]) => {
+  const byJobs = async (table: "appointments" | "appointment_requests" | "job_media" | "job_notes" | "job_events" | "notifications", jobIds: string[]) => {
     if (!jobIds.length) return [];
     const result = await admin.from(table).select("*").in("job_id", jobIds);
     if (result.error) fail(`Could not read ${table}: ${result.error.message}`);
@@ -26,8 +26,8 @@ export async function customerFootprint(admin: Admin, customerId: string) {
   const addresses = await rows("customer_addresses", "customer_id", customerId);
   const jobs = await rows("jobs", "customer_id", customerId);
   const jobIds = jobs.map((job) => String(job.id));
-  const [appointments, requests, media, events, notifications] = await Promise.all(
-    (["appointments", "appointment_requests", "job_media", "job_events", "notifications"] as const).map((table) => byJobs(table, jobIds)),
+  const [appointments, requests, media, notes, events, notifications] = await Promise.all(
+    (["appointments", "appointment_requests", "job_media", "job_notes", "job_events", "notifications"] as const).map((table) => byJobs(table, jobIds)),
   );
 
   // Every object under <owner>/<job>/, registered in job_media or not.
@@ -40,7 +40,7 @@ export async function customerFootprint(admin: Admin, customerId: string) {
       for (const file of files ?? []) objects.push({ bucket, path: `${prefix}/${file.name}` });
     }
   }
-  return { customer, addresses, jobs, appointments, requests, media, events, notifications, objects };
+  return { customer, addresses, jobs, appointments, requests, media, notes, events, notifications, objects };
 }
 
 /** Exports and backups hold real personal data: never inside the (public) repository. */

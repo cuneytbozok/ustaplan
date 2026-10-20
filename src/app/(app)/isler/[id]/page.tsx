@@ -7,6 +7,7 @@ import { AppointmentsSection } from "@/components/appointments/appointments-sect
 import { BackLink } from "@/components/common/back-link";
 import { PhotoGallery } from "@/components/media/photo-gallery";
 import { VoiceNotes } from "@/components/media/voice-notes";
+import { JobNotes } from "@/components/notes/job-notes";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
@@ -59,10 +60,11 @@ async function JobDetail({
     supabase
       .from("jobs")
       .select(
-        "id, owner_user_id, title, status, share_enabled, share_version, private_note, estimated_price, agreed_price, show_price_to_customer, cancelled_by, cancelled_reason, cancelled_note, cancelled_at, completed_at, created_at, customers(id, name, phone), customer_addresses(label, address_text), appointments(id, starts_at, ends_at, status)",
+        "id, owner_user_id, title, status, share_enabled, share_version, estimated_price, agreed_price, show_price_to_customer, cancelled_by, cancelled_reason, cancelled_note, cancelled_at, completed_at, created_at, customers(id, name, phone), customer_addresses(label, address_text), appointments(id, starts_at, ends_at, status), job_notes(id, author, body, created_at, edited_at)",
       )
       .eq("id", id)
       .order("starts_at", { referencedTable: "appointments" })
+      .order("created_at", { referencedTable: "job_notes", ascending: false })
       .maybeSingle(),
     supabase.from("job_events").select("id, event_type, actor_type, payload, created_at").eq("job_id", id).order("created_at", { ascending: false }).limit(200),
     supabase
@@ -113,6 +115,9 @@ async function JobDetail({
     const appointment = job.appointments.find((a) => a.id === r.appointment_id);
     return appointment ? [{ ...r, appointment }] : [];
   });
+  const artisanNotes = job.job_notes
+    .filter((n) => n.author === "artisan")
+    .map((n) => ({ id: n.id, body: n.body, createdAt: n.created_at, editedAt: n.edited_at }));
   const priceEvents = eventsResult.data.filter((e) => e.event_type === "price_changed" || e.event_type === "price_visibility_changed");
 
   return (
@@ -268,17 +273,14 @@ async function JobDetail({
       </section>
 
       <section className={cardClass}>
-        <h2 className="mb-1 text-base font-semibold text-ink">Ses notları</h2>
-        <p className="mb-3 text-xs text-muted-foreground">Sadece sen görürsün.</p>
-        <VoiceNotes notes={voiceNotes} jobId={job.id} ownerId={job.owner_user_id} />
+        <h2 className="mb-1 text-base font-semibold text-ink">Notlarım</h2>
+        <p className="mb-3 text-xs text-muted-foreground">Yazılı ve sesli notlar. Sadece sen görürsün.</p>
+        <JobNotes jobId={job.id} notes={artisanNotes} />
+        <div className="mt-4 border-t border-border pt-4">
+          <h3 className="mb-2 text-sm font-medium text-ink">Ses notları</h3>
+          <VoiceNotes notes={voiceNotes} jobId={job.id} ownerId={job.owner_user_id} />
+        </div>
       </section>
-
-      {job.private_note ? (
-        <section className={cardClass}>
-          <h2 className="text-xs font-medium text-muted-foreground">Özel not · Sadece sen görürsün</h2>
-          <p className="mt-1 text-sm break-words whitespace-pre-line text-ink">{job.private_note}</p>
-        </section>
-      ) : null}
 
       <section className={cardClass}>
         <h2 className="mb-2 text-base font-semibold text-ink">Geçmiş</h2>

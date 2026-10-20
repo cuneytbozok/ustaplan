@@ -18,6 +18,7 @@ auth.users 1─1 profiles 1─* customers 1─* customer_addresses
                   │            └─* jobs *─0..1 customer_addresses
                   │                   ├─* appointments 1─* appointment_requests
                   │                   ├─* job_media
+                  │                   ├─* job_notes
                   │                   └─* job_events
                   ├─* notifications *─0..1 jobs
                   └─* push_subscriptions
@@ -68,7 +69,6 @@ The admin script creates rows. No auth trigger.
 | title | text | not null, 1–200. "Yapılacak iş". **Customer-visible.** |
 | search_key | text | generated `fold_tr(title)` |
 | status | text | `unplanned · scheduled · in_progress · waiting_material · completed · cancelled`, default `unplanned`. **RPC-only.** |
-| private_note | text | null, ≤4000. Artisan-only. |
 | estimated_price | numeric(12,2) | null, ≥0. **Never customer-visible.** |
 | agreed_price | numeric(12,2) | null, ≥0 |
 | currency | text | `'TRY'` |
@@ -86,7 +86,7 @@ Consistency checks:
 - `cancelled_by <> 'customer' or cancelled_reason is not null`
 - `cancelled_reason <> 'other' or cancelled_by <> 'customer' or length(btrim(cancelled_note)) > 0`
 
-The starter's `description` column is **dropped** (P-1). The artisan has one shared field (`title`) and one private field (`private_note`).
+The starter's `description` column is **dropped** (P-1). The artisan has one shared field (`title`); private text lives in `job_notes` (plan N-1). `jobs.private_note` existed until migration `job_notes`, which copied every value into `job_notes` and dropped the column.
 
 ### appointments
 | Column | Type | Rules |
@@ -130,6 +130,17 @@ Partial unique index: one open negotiation per appointment (`status in ('pending
 
 The starter's combination check is kept: audio is always artisan + private + `job-audio`, and customer images are always `shared`.
 
+### job_notes (plan N-1, migration `job_notes`)
+| Column | Type | Rules |
+| --- | --- | --- |
+| id, owner_user_id, job_id | uuid | FK `(owner_user_id, job_id)` → jobs on delete cascade; `owner_user_id` defaults to `auth.uid()` |
+| author | text | `artisan · customer`, default `artisan` |
+| body | text | not null, trimmed 1–4000; customer notes ≤ 1000 |
+| created_at, updated_at | timestamptz | |
+| edited_at | timestamptz null | set by the `job_notes_touch` trigger when `body` changes ("Düzenlendi") |
+
+Index `(job_id, author, created_at)`. Artisan notes are private (never on the customer page). Customer notes are written only by the server after the link check (N.3) and are read-only for the artisan. Hard delete; no history of note text.
+
 ### job_events (audit + history)
 | Column | Type | Rules |
 | --- | --- | --- |
@@ -138,7 +149,7 @@ The starter's combination check is kept: audio is always artisan + private + `jo
 | actor_type | text | `artisan · link_holder · system` |
 | payload | jsonb | never contains phone numbers or addresses |
 
-Event types: `job_created, job_updated, status_changed, price_changed, price_visibility_changed, appointment_scheduled, appointment_rescheduled, appointment_completed, appointment_cancelled, request_created, request_countered, request_accepted, request_rejected, request_withdrawn, request_closed, job_cancelled, job_reopened, media_added, media_deleted, share_disabled, share_enabled, share_rotated`.
+Event types: `job_created, job_updated, status_changed, price_changed, price_visibility_changed, appointment_scheduled, appointment_rescheduled, appointment_completed, appointment_cancelled, request_created, request_countered, request_accepted, request_rejected, request_withdrawn, request_closed, job_cancelled, job_reopened, media_added, media_deleted, share_disabled, share_enabled, share_rotated, note_added, note_updated, note_deleted`. The `note_*` events record customer note actions (`actor_type='link_holder'`, payload `{note_id}`, never the text).
 
 **Price history:** an `after update` trigger on `jobs` writes `price_changed` (`{field, old, new}`) when `estimated_price` or `agreed_price` changes, and `price_visibility_changed` when `show_price_to_customer` changes. It captures every write path, not just one action. Inserts from the trigger and RPCs only.
 
@@ -164,6 +175,7 @@ Event types: `job_created, job_updated, status_changed, price_changed, price_vis
 | `counter_accepted` | immediate | yes | `accepted:<request_id>` |
 | `request_withdrawn` | immediate (owner decision 2026-10-18: the withdraw route sets `push_status` from `none` to `pending` once; tag `request:<request_id>` replaces the request's push) | yes | `withdrawn:<request_id>` |
 | `customer_photo_added` | — | yes (one item per job per day; repeat uploads increment `payload.count` and mark it unread again) | `photos:<job_id>:<YYYY-MM-DD Istanbul>` |
+| `customer_note` (N.3) | immediate for the first note action of the day | yes (one item per job per day; later notes/edits increment `payload.count` and mark it unread again, no extra push) | `notes:<job_id>:<YYYY-MM-DD Istanbul>` |
 | `appointment_reminder` | scheduled | no | `appt-reminder:<appointment_id>` |
 | `daily_digest` | scheduled | no | `digest:<YYYY-MM-DD Istanbul>` |
 
@@ -201,10 +213,11 @@ All policies check `owner_user_id = (select auth.uid())` (`id` for profiles). `a
 | profiles | own | — (admin script) | `display_name, business_name, contact_phone` | — |
 | customers | own | own | `name, phone, private_note` | own (FK restrict when jobs exist) |
 | customer_addresses | own | own | `label, address_text` | own |
-| jobs | own | **RPC** (`create_job`) | `customer_id, address_id, title, private_note, estimated_price, agreed_price, show_price_to_customer, share_enabled, share_version` | **none** (P-3) |
+| jobs | own | **RPC** (`create_job`) | `customer_id, address_id, title, estimated_price, agreed_price, show_price_to_customer, share_enabled, share_version` | **none** (P-3) |
 | appointments | own | RPC | RPC | — |
 | appointment_requests | own | RPC | RPC | — |
 | job_media | own | own, with check `origin='artisan' and deleted_at is null` | `visibility, deleted_at, deleted_by` | — (soft delete) |
+| job_notes | own (both authors) | own, with check `author='artisan'` | `body`, only where `author='artisan'` | own, only `author='artisan'` |
 | job_events | own | — (RPCs + trigger) | — | — |
 | notifications | own | — (server) | `read_at` | — |
 | push_subscriptions | own | own | — | own |
@@ -223,7 +236,7 @@ Each one locks the job row (`select … for update`), validates the transition, 
 
 | Function | Effect |
 | --- | --- |
-| `create_job(job_id, title, customer_id \| new_customer_name + phone, address_id, private_note, estimated_price, agreed_price, show_price, starts_at?, ends_at?)` | Optional inline customer + job + optional first appointment, in one transaction (status `scheduled` or `unplanned`). The caller supplies `job_id`, so a repeated call returns the same job. Results: `ok · customer_not_found · invalid_input`. |
+| `create_job(job_id, title, customer_id \| new_customer_name + phone, address_id, notes[], estimated_price, agreed_price, show_price, starts_at?, ends_at?)` | Optional inline customer + job + optional private notes (≤ 10, each ≤ 4000; empty ones skipped; migration `job_notes` replaced `private_note`) + optional first appointment, in one transaction (status `scheduled` or `unplanned`). The caller supplies `job_id`, so a repeated call returns the same job. Results: `ok · customer_not_found · invalid_input`. |
 | `change_job_status(job_id, action, note?)` | `action ∈ start · wait_material · complete · cancel · reopen`. Applies plan §7 rules J1–J6, including cascades to appointments and requests. Complete and cancel both cancel scheduled appointments with `ends_at > now()`; ended visits stay for Takip gerekenler. Results: `ok · not_found · invalid_transition · invalid_input`. |
 | `save_appointment(job_id, appointment_id?, starts_at, ends_at)` | New appointment, or reschedule (old one `superseded` + `replaced_by_id`, open request `closed`). Applies J2. Duration 15–480 min; closed jobs refused; past times allowed. A repeat with the same job and times returns the existing appointment (for a reschedule, the old one's replacement). Results: `ok · not_found · invalid_transition · invalid_input` (+ `appointment_id`, job `status`). |
 | `close_appointment(appointment_id, outcome)` | `outcome ∈ completed · cancelled`; closes the open request; applies J3 (only when no scheduled visit is left and the job is `scheduled`). Repeating the same outcome is ok. Results: `ok · not_found · invalid_transition · invalid_input` (+ job `status`). |
@@ -253,6 +266,7 @@ The dispatcher endpoint (plan §9) uses the admin client:
 
 ## 5. Triggers
 - `touch_updated_at` on profiles, customers, customer_addresses, jobs, appointments, appointment_requests.
+- `job_notes_touch` (before update) on job_notes: `updated_at`, and `edited_at` when `body` changes.
 - `jobs_log_changes` (after update, `security definer`): writes `price_changed` (`{field, old, new}`), `price_visibility_changed`, `share_enabled`/`share_disabled`/`share_rotated` and `job_updated` (title, address, customer) events. This gives price history without extra code paths. It also rejects a lower `share_version` (revoked links can't come back). `actor_type` is `artisan` when the owner made the change, otherwise `system`.
 
 ---

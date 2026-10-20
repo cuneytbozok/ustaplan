@@ -29,7 +29,7 @@ async function EditJob({ params }: { params: PageProps<"/isler/[id]/duzenle">["p
   const [jobResult, customersResult] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title, customer_id, address_id, estimated_price, agreed_price, show_price_to_customer, private_note")
+      .select("id, title, customer_id, address_id, estimated_price, agreed_price, show_price_to_customer")
       .eq("id", id)
       .maybeSingle(),
     supabase.from("customers").select("id, name, customer_addresses(id, label, address_text)").order("name").limit(500),
@@ -63,7 +63,6 @@ async function EditJob({ params }: { params: PageProps<"/isler/[id]/duzenle">["p
             agreedPrice: formatPriceInput(job.agreed_price),
             estimatedPrice: formatPriceInput(job.estimated_price),
             showPrice: job.show_price_to_customer,
-            privateNote: job.private_note ?? "",
           }}
         />
       </section>
