@@ -5,6 +5,7 @@ import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { AutoRefresh } from "@/components/common/auto-refresh";
 import { CancelSheet } from "@/components/public/cancel-sheet";
+import { CustomerNotes } from "@/components/public/customer-notes";
 import { CustomerPhotos } from "@/components/public/customer-photos";
 import { RescheduleSection } from "@/components/public/reschedule-section";
 import { loadCustomerJob } from "@/lib/customer-link";
@@ -33,7 +34,7 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
   const { token } = await params;
   const view = await loadCustomerJob(token);
   if (!view) notFound();
-  const { artisan, job, nextAppointment, request, agreedPrice, photos, capabilities } = view;
+  const { artisan, job, nextAppointment, request, agreedPrice, photos, notes, capabilities } = view;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -86,6 +87,8 @@ export default async function CustomerJobPage({ params }: PageProps<"/t/[token]"
       ) : null}
 
       <CustomerPhotos token={token} photos={photos} canUpload={capabilities.uploadPhotos} />
+
+      <CustomerNotes token={token} notes={notes} canWrite={capabilities.writeNotes} />
 
       {artisan.phone ? (
         <section className="grid grid-cols-2 gap-2" aria-label="Ustanızla iletişim">

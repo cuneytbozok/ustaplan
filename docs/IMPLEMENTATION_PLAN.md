@@ -170,23 +170,24 @@ See **[DATA_MODEL.md](architecture/DATA_MODEL.md)**. It covers tables, checks, g
   - The open request state.
   - The agreed price, only if `show_price_to_customer`.
   - Photos (via the proxy URL) with a `canDelete` flag.
+  - The customer's own notes (N-1).
   - Capability flags.
 
-  **Never** the customer's phone or address, other jobs, notes, audio, private photos, the estimate, or the calendar.
+  **Never** the customer's phone or address, other jobs, the artisan's notes, audio, private photos, the estimate, or the calendar.
 - **GETs are read-only** (WhatsApp previews). There's no OG data and the title is generic.
 - **POST/DELETE:** explicit button + confirmation, `Origin` = `APP_BASE_URL`, zod, rate limits, and a `job_events` row with `actor_type='link_holder'`.
 - **Headers** on `/t/*`, `/api/t/*`, `/gizlilik`: `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`.
-- **Rate limits:** ≤ 10 uploads per hour, ≤ 20 active customer photos, ≤ 10 reschedule requests per day, per job. Photo limits are counted from `job_media` (the hourly one includes deleted uploads), so concurrent requests may overshoot by one or two. Cancel needs no counter: only the first call on an open job changes anything, and cancelling again requires the artisan to reopen the job.
+- **Rate limits:** ≤ 10 uploads per hour, ≤ 20 active customer photos, ≤ 10 reschedule requests per day, ≤ 20 active customer notes and ≤ 20 note writes per hour (N-1), per job. Photo limits are counted from `job_media` (the hourly one includes deleted uploads), so concurrent requests may overshoot by one or two. Cancel needs no counter: only the first call on an open job changes anything, and cancelling again requires the artisan to reopen the job.
 - **Accepted risk (owner):** whoever holds an active link can perform its customer actions.
 
 **Customer capabilities**
 
-| Job state | Upload | Delete own-origin photo | Request reschedule | Accept / withdraw | Cancel |
-| --- | --- | --- | --- | --- | --- |
-| unplanned | ✓ | ✓ | – | – | ✓ |
-| scheduled · in_progress · waiting_material | ✓ | ✓ | ✓ (next appointment) | ✓ | ✓ |
-| completed | ✓ | ✓ | – | – | – |
-| cancelled | – | ✓ | – | – | – |
+| Job state | Upload | Delete own-origin photo | Request reschedule | Accept / withdraw | Cancel | Own notes (N-1) |
+| --- | --- | --- | --- | --- | --- | --- |
+| unplanned | ✓ | ✓ | – | – | ✓ | ✓ |
+| scheduled · in_progress · waiting_material | ✓ | ✓ | ✓ (next appointment) | ✓ | ✓ | ✓ |
+| completed | ✓ | ✓ | – | – | – | read-only |
+| cancelled | – | ✓ | – | – | – | read-only |
 | link disabled/rotated | invalid page | | | | |
 
 ---

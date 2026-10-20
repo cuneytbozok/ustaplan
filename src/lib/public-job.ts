@@ -1,7 +1,8 @@
 // CustomerJobView (plan §5): the ONLY shape the customer page and its API may
 // return. Built field by field from allowlisted inputs; never spread a row.
-// It never contains the customer's phone or address, other jobs, notes,
-// audio, private photos, the estimated price or the artisan's calendar.
+// It never contains the customer's phone or address, other jobs, the
+// artisan's notes, audio, private photos, the estimated price or the
+// artisan's calendar. Notes in it are the customer's own (plan N-1).
 
 import { OPEN_JOB_STATUSES, type JobStatus } from "./domain/labels";
 
@@ -13,7 +14,9 @@ export type CustomerJobView = {
   request: CustomerRequest | null;
   agreedPrice: number | null;
   photos: { id: string; url: string; fromCustomer: boolean; canDelete: boolean }[];
-  capabilities: { uploadPhotos: boolean; requestReschedule: boolean; cancel: boolean };
+  /** The customer's own written notes, newest first. */
+  notes: { id: string; body: string; createdAt: string; editedAt: string | null }[];
+  capabilities: { uploadPhotos: boolean; requestReschedule: boolean; cancel: boolean; writeNotes: boolean };
 };
 
 export type CustomerRequest = {
@@ -43,6 +46,8 @@ export type CustomerJobSource = {
   }[];
   /** Live (not deleted) image rows of the job. */
   media: { id: string; kind: string; origin: string; visibility: string }[];
+  /** Notes of the job; only author 'customer' is ever shown. */
+  notes: { id: string; author: string; body: string; created_at: string; edited_at: string | null }[];
 };
 
 const isOpen = (status: string) => (OPEN_JOB_STATUSES as readonly string[]).includes(status);
@@ -74,6 +79,12 @@ export function toCustomerJobView(source: CustomerJobSource): CustomerJobView {
       canDelete: m.origin === "customer",
     }));
 
+  // The artisan's notes are private: only the customer's own notes are shown.
+  const notes = source.notes
+    .filter((n) => n.author === "customer")
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map((n) => ({ id: n.id, body: n.body, createdAt: n.created_at, editedAt: n.edited_at }));
+
   return {
     artisan: {
       name: source.profile.business_name?.trim() || source.profile.display_name,
@@ -84,11 +95,13 @@ export function toCustomerJobView(source: CustomerJobSource): CustomerJobView {
     request,
     agreedPrice: source.job.show_price_to_customer ? source.job.agreed_price : null,
     photos,
-    // Capability table (plan §5).
+    notes,
+    // Capability table (plan §5; notes: plan N-1, open jobs only).
     capabilities: {
       uploadPhotos: status !== "cancelled",
       requestReschedule: status !== "unplanned" && isOpen(status) && nextAppointment !== null,
       cancel: isOpen(status),
+      writeNotes: isOpen(status),
     },
   };
 }

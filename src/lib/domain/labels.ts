@@ -56,6 +56,9 @@ export const JOB_EVENT_LABELS: Record<string, string> = {
   share_disabled: "Müşteri bağlantısı kapatıldı",
   share_enabled: "Müşteri bağlantısı açıldı",
   share_rotated: "Müşteri bağlantısı yenilendi",
+  note_added: "Müşteri not ekledi",
+  note_updated: "Müşteri notunu düzenledi",
+  note_deleted: "Müşteri notunu sildi",
 };
 
 export const JOB_FIELD_LABELS: Record<string, string> = {

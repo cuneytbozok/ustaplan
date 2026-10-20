@@ -7,7 +7,7 @@ import { AppointmentsSection } from "@/components/appointments/appointments-sect
 import { BackLink } from "@/components/common/back-link";
 import { PhotoGallery } from "@/components/media/photo-gallery";
 import { VoiceNotes } from "@/components/media/voice-notes";
-import { JobNotes } from "@/components/notes/job-notes";
+import { JobNotes, NoteStamp } from "@/components/notes/job-notes";
 import { NotFoundState } from "@/components/common/not-found-state";
 import { ListSkeleton } from "@/components/common/skeleton";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
@@ -115,9 +115,10 @@ async function JobDetail({
     const appointment = job.appointments.find((a) => a.id === r.appointment_id);
     return appointment ? [{ ...r, appointment }] : [];
   });
-  const artisanNotes = job.job_notes
-    .filter((n) => n.author === "artisan")
-    .map((n) => ({ id: n.id, body: n.body, createdAt: n.created_at, editedAt: n.edited_at }));
+  const notesBy = (author: "artisan" | "customer") =>
+    job.job_notes.filter((n) => n.author === author).map((n) => ({ id: n.id, body: n.body, createdAt: n.created_at, editedAt: n.edited_at }));
+  const artisanNotes = notesBy("artisan");
+  const customerNotes = notesBy("customer");
   const priceEvents = eventsResult.data.filter((e) => e.event_type === "price_changed" || e.event_type === "price_visibility_changed");
 
   return (
@@ -271,6 +272,23 @@ async function JobDetail({
         <p className="mb-3 text-xs text-muted-foreground">Fotoğraflar sadece sen görürsün; istediğini müşteriyle paylaşabilirsin.</p>
         <PhotoGallery photos={photos} upload={{ jobId: job.id, ownerId: job.owner_user_id }} emptyText="Henüz fotoğraf yok." />
       </section>
+
+      {customerNotes.length ? (
+        <section className={cardClass}>
+          <h2 className="mb-1 text-base font-semibold text-ink">Müşteri notları</h2>
+          <p className="mb-3 text-xs text-muted-foreground">Müşteri, takip sayfasından yazdı. Sadece müşteri değiştirebilir.</p>
+          <ul className="flex flex-col gap-2">
+            {customerNotes.map((note) => (
+              <li key={note.id} className="rounded-xl bg-primary-soft p-3">
+                <p className="text-xs text-muted-foreground">
+                  <NoteStamp note={note} />
+                </p>
+                <p className="mt-1 text-sm break-words whitespace-pre-line text-ink">{note.body}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className={cardClass}>
         <h2 className="mb-1 text-base font-semibold text-ink">Notlarım</h2>

@@ -36,7 +36,7 @@ export async function loadCustomerJob(token: string): Promise<CustomerJobView | 
   if (!verified) return null;
   const { admin, jobId, ownerId } = verified;
 
-  const [job, profile, appointments, media, requests] = await Promise.all([
+  const [job, profile, appointments, media, requests, notes] = await Promise.all([
     admin.from("jobs").select("title, status, agreed_price, show_price_to_customer").eq("id", jobId).single(),
     admin.from("profiles").select("display_name, business_name, contact_phone").eq("id", ownerId).single(),
     admin.from("appointments").select("id, starts_at, ends_at").eq("job_id", jobId).eq("status", "scheduled"),
@@ -54,8 +54,16 @@ export async function loadCustomerJob(token: string): Promise<CustomerJobView | 
       .eq("job_id", jobId)
       .order("created_at", { ascending: false })
       .limit(10),
+    // Only the customer's own notes are ever read for this page (the artisan's are private).
+    admin
+      .from("job_notes")
+      .select("id, author, body, created_at, edited_at")
+      .eq("job_id", jobId)
+      .eq("author", "customer")
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
-  if (job.error || profile.error || appointments.error || media.error || requests.error) throw new Error("customer view load failed");
+  if (job.error || profile.error || appointments.error || media.error || requests.error || notes.error) throw new Error("customer view load failed");
 
   return toCustomerJobView({
     token,
@@ -64,5 +72,6 @@ export async function loadCustomerJob(token: string): Promise<CustomerJobView | 
     upcoming: appointments.data.filter((a) => hasNotEnded(a.ends_at)),
     media: media.data,
     requests: requests.data,
+    notes: notes.data,
   });
 }

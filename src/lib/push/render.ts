@@ -37,6 +37,12 @@ export function renderNotification(category: string, payload: unknown): Rendered
       const count = typeof p.count === "number" && p.count > 1 ? p.count : 1;
       return { title: count > 1 ? `${who} ${count} fotoğraf ekledi` : `${who} fotoğraf ekledi`, body: job };
     }
+    case "customer_note": {
+      // One item per job per day (N-1): the latest action names it, the count says how many.
+      const count = typeof p.count === "number" && p.count > 1 ? p.count : 1;
+      if (count > 1) return { title: `${who} notlarını güncelledi (${count})`, body: job };
+      return { title: p.action === "updated" ? `${who} notunu güncelledi` : `${who} not ekledi`, body: job };
+    }
     case "appointment_reminder": {
       const start = text(p.starts_at);
       const time = start && !Number.isNaN(Date.parse(start)) ? formatTime(start) : "";

@@ -257,6 +257,8 @@ Reschedule (M5.3): the customer's request always targets the job's **next** appo
 
 Customer **photo** add and delete aren't RPCs. The route handler validates the token and checks the job state, rate limits and media ownership, then uses the admin client for the storage call and the row insert or soft-delete. Plain CRUD is enough because they are single-row changes. Both write a `media_added`/`media_deleted` event (`actor_type='link_holder'`, payload `{media_id, kind, origin}`); an upload whose event insert fails is rolled back (row and object). A repeated delete returns ok without a second event.
 
+Customer **notes** (N.3) aren't RPCs either: `POST /api/t/[token]/notes`, `PATCH`/`DELETE /api/t/[token]/notes/[note_id]` (`lib/customer-notes.ts`). After the token check the handler requires an open job (409 otherwise), counts limits from rows (≤ 20 active customer notes, ≤ 20 `note_*` link_holder events per job per hour → 429), matches the note by `id + job_id + author='customer'` (anything else → 404), writes the `note_*` event first and removes it again if the note write fails. Add and edit raise the daily `customer_note` notification; delete only leaves the event.
+
 ### Notifications (no functions)
 The dispatcher endpoint (plan §9) uses the admin client:
 - **Due reminders:** select due appointments, then `upsert` notifications with `onConflict: owner_user_id,dedupe_key, ignoreDuplicates`.

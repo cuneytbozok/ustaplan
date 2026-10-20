@@ -60,7 +60,8 @@ If the docs conflict and the plan doesn't resolve it, ask the owner.
 - Job history and audit events
 - In-app inbox
 - **Web Push**: immediate events, a reminder 1 h before each appointment, a daily follow-up
-- Signed customer link: view, cancel with a mandatory reason, reschedule request and counter-offer, photo upload/delete
+- Signed customer link: view, cancel with a mandatory reason, reschedule request and counter-offer, photo upload/delete, the customer's own written notes (open jobs only)
+- Job notes (plan N-1): several private written notes per job plus voice notes, also while creating a job; customer notes shown separately and read-only
 - KVKK notice at `/gizlilik`
 - WhatsApp, call and map deep links
 - Installable PWA
@@ -94,7 +95,7 @@ If the docs conflict and the plan doesn't resolve it, ask the owner.
 ## Security rules (non-negotiable)
 - RLS on every table; owner-scoped policies; composite FKs; `security definer` RPCs assert ownership or the share version themselves; `anon` has nothing.
 - The admin panel shows per-artisan counts only: never customer names, phones, addresses, notes, photos or job content. Temporary passwords are shown once and never logged or stored.
-- The customer page never exposes the customer's phone or address, other jobs, notes, audio, private photos, the **estimated price**, or the artisan's calendar.
+- The customer page never exposes the customer's phone or address, other jobs, the artisan's notes, audio, private photos, the **estimated price**, or the artisan's calendar.
 - Public GETs are strictly read-only (WhatsApp previews). POST/DELETE need an explicit user action, an `Origin` check, zod validation, rate limits, and an audit event.
 - Public routes send `no-store`, `no-referrer` and `noindex`; no third-party scripts; no OG tags with job data.
 - Never log tokens, phone numbers, addresses or passwords. Seeds and tests use fake data only.

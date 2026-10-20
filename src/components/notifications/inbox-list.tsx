@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, CalendarClock, ChevronRight, ImagePlus, Undo2, XCircle, type LucideIcon } from "lucide-react";
+import { CalendarCheck, CalendarClock, ChevronRight, ImagePlus, NotebookPen, Undo2, XCircle, type LucideIcon } from "lucide-react";
 import { markAllNotificationsRead, markNotificationRead } from "@/actions/notifications";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +25,7 @@ const ICONS: Record<string, { icon: LucideIcon; tone: string }> = {
   counter_accepted: { icon: CalendarCheck, tone: "bg-primary-soft text-primary" },
   request_withdrawn: { icon: Undo2, tone: "bg-muted text-muted-foreground" },
   customer_photo_added: { icon: ImagePlus, tone: "bg-primary-soft text-primary" },
+  customer_note: { icon: NotebookPen, tone: "bg-primary-soft text-primary" },
 };
 
 /** One inbox row: opening it marks it read and goes to the job. */

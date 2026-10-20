@@ -38,11 +38,13 @@ export function NoteEditor({
   label,
   onSave,
   onCancel,
+  maxLength = MAX_LENGTH,
 }: {
   initial: string;
   label: string;
   onSave: (text: string) => Promise<ActionResult>;
   onCancel: () => void;
+  maxLength?: number;
 }) {
   const [text, setText] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function NoteEditor({
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={3}
-        maxLength={MAX_LENGTH}
+        maxLength={maxLength}
         autoFocus
         className={cn(inputClassName, "h-auto py-2.5")}
       />
@@ -111,12 +113,14 @@ export function EditableNote({
   question,
   onUpdate,
   onDelete,
+  maxLength,
 }: {
   body: string;
   stamp: React.ReactNode;
   question: string;
   onUpdate: (text: string) => Promise<ActionResult>;
   onDelete: () => Promise<ActionResult>;
+  maxLength?: number;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "confirm">("view");
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +129,7 @@ export function EditableNote({
   if (mode === "edit") {
     return (
       <li className="rounded-xl border border-border p-3">
-        <NoteEditor initial={body} label="Notu düzenle" onSave={onUpdate} onCancel={() => setMode("view")} />
+        <NoteEditor initial={body} label="Notu düzenle" onSave={onUpdate} onCancel={() => setMode("view")} maxLength={maxLength} />
       </li>
     );
   }
@@ -187,10 +191,10 @@ export function EditableNote({
 }
 
 /** Dashed "+ Not ekle" button that opens an editor. */
-export function AddNote({ onSave }: { onSave: (text: string) => Promise<ActionResult> }) {
+export function AddNote({ onSave, maxLength }: { onSave: (text: string) => Promise<ActionResult>; maxLength?: number }) {
   const [adding, setAdding] = useState(false);
   return adding ? (
-    <NoteEditor initial="" label="Yeni not" onSave={onSave} onCancel={() => setAdding(false)} />
+    <NoteEditor initial="" label="Yeni not" onSave={onSave} onCancel={() => setAdding(false)} maxLength={maxLength} />
   ) : (
     <button
       type="button"

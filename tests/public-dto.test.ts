@@ -31,6 +31,11 @@ const source = (overrides: Partial<CustomerJobSource["job"]> = {}): CustomerJobS
       { id: "customer-photo", kind: "image", origin: "customer", visibility: "shared", storage_path: "owner/job/c.jpg" },
       { id: "voice-note", kind: "audio", origin: "artisan", visibility: "private", storage_path: "owner/job/d.m4a" },
     ],
+    notes: [
+      { id: "artisan-note", author: "artisan", body: "USTA GİZLİ NOTU", created_at: "2026-10-19T09:00:00Z", edited_at: null, owner_user_id: "owner-id" },
+      { id: "customer-old", author: "customer", body: "Kapı kodu 1234", created_at: "2026-10-19T08:00:00Z", edited_at: "2026-10-19T10:00:00Z" },
+      { id: "customer-new", author: "customer", body: "Köpek var", created_at: "2026-10-19T11:00:00Z", edited_at: null },
+    ],
   }) as unknown as CustomerJobSource;
 
 const keys = (value: object) => Object.keys(value).sort();
@@ -40,12 +45,20 @@ describe("CustomerJobView allowlist", () => {
   const json = JSON.stringify(view);
 
   it("has exactly the allowlisted keys", () => {
-    expect(keys(view)).toEqual(["agreedPrice", "artisan", "capabilities", "job", "nextAppointment", "photos", "request"]);
+    expect(keys(view)).toEqual(["agreedPrice", "artisan", "capabilities", "job", "nextAppointment", "notes", "photos", "request"]);
     expect(keys(view.artisan)).toEqual(["name", "phone"]);
     expect(keys(view.job)).toEqual(["status", "title"]);
     expect(keys(view.nextAppointment!)).toEqual(["endsAt", "startsAt"]);
-    expect(keys(view.capabilities)).toEqual(["cancel", "requestReschedule", "uploadPhotos"]);
+    expect(keys(view.capabilities)).toEqual(["cancel", "requestReschedule", "uploadPhotos", "writeNotes"]);
     for (const photo of view.photos) expect(keys(photo)).toEqual(["canDelete", "fromCustomer", "id", "url"]);
+    for (const note of view.notes) expect(keys(note)).toEqual(["body", "createdAt", "editedAt", "id"]);
+  });
+
+  it("shows only the customer's own notes, newest first, never the artisan's", () => {
+    expect(view.notes.map((n) => n.id)).toEqual(["customer-new", "customer-old"]);
+    expect(view.notes[1]).toEqual({ id: "customer-old", body: "Kapı kodu 1234", createdAt: "2026-10-19T08:00:00Z", editedAt: "2026-10-19T10:00:00Z" });
+    expect(json).not.toContain("USTA GİZLİ NOTU");
+    expect(json).not.toContain("artisan-note");
   });
 
   it("never contains the estimate, notes, customer phone/address or storage paths", () => {
@@ -74,11 +87,12 @@ describe("CustomerJobView allowlist", () => {
   it("derives capabilities from the job state (plan §5)", () => {
     const caps = (status: string, upcoming = true) =>
       toCustomerJobView({ ...source({ status }), upcoming: upcoming ? source().upcoming : [] }).capabilities;
-    expect(caps("unplanned", false)).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: true });
-    expect(caps("scheduled")).toEqual({ uploadPhotos: true, requestReschedule: true, cancel: true });
-    expect(caps("in_progress", false)).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: true });
-    expect(caps("completed")).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: false });
-    expect(caps("cancelled")).toEqual({ uploadPhotos: false, requestReschedule: false, cancel: false });
+    expect(caps("unplanned", false)).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: true, writeNotes: true });
+    expect(caps("scheduled")).toEqual({ uploadPhotos: true, requestReschedule: true, cancel: true, writeNotes: true });
+    expect(caps("in_progress", false)).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: true, writeNotes: true });
+    expect(caps("waiting_material", false)).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: true, writeNotes: true });
+    expect(caps("completed")).toEqual({ uploadPhotos: true, requestReschedule: false, cancel: false, writeNotes: false });
+    expect(caps("cancelled")).toEqual({ uploadPhotos: false, requestReschedule: false, cancel: false, writeNotes: false });
   });
 
   it("shows the latest request about the next appointment, with its note left out", () => {

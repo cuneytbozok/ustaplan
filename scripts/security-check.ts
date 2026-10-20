@@ -18,6 +18,8 @@
  * refused, aal2 opens the panel, no-store/noindex, admin session sees no rows.
  * N.1: job_notes isolation; the artisan can't write customer notes or the
  * author column; create_job notes (limit, owner); jobs.private_note is gone.
+ * N.3: customer notes over HTTP (Origin, link, body, ownership, open jobs only,
+ * limits, events without text, one daily notification pushed once).
  *
  *   npm run security-check
  *
@@ -121,6 +123,7 @@ async function main() {
     eJob: randomUUID(),
     note: randomUUID(),
     customerNote: randomUUID(),
+    bNote: randomUUID(),
   };
   const objectPath = `${a.id}/${ids.job}/${ids.media}.jpg`;
   const sharedPath = `${a.id}/${ids.job}/${ids.sharedMedia}.jpg`;
@@ -146,9 +149,10 @@ async function main() {
     await must("shared media", admin.from("job_media").insert({ id: ids.sharedMedia, owner_user_id: a.id, job_id: ids.job, kind: "image", origin: "artisan", visibility: "shared", storage_bucket: "job-images", storage_path: sharedPath, mime_type: "image/jpeg", size_bytes: jpeg.length }));
     await must("audio media", admin.from("job_media").insert({ id: ids.audio, owner_user_id: a.id, job_id: ids.job, kind: "audio", origin: "artisan", visibility: "private", storage_bucket: "job-audio", storage_path: `${a.id}/${ids.job}/${ids.audio}.m4a`, mime_type: "audio/mp4", size_bytes: 10, duration_seconds: 1 }));
     await must("note", admin.from("job_notes").insert({ id: ids.note, owner_user_id: a.id, job_id: ids.job, body: `${tag} gizlinot` }));
-    await must("customer note", admin.from("job_notes").insert({ id: ids.customerNote, owner_user_id: a.id, job_id: ids.job, author: "customer", body: `${tag} müşteri notu` }));
+    await must("customer note", admin.from("job_notes").insert({ id: ids.customerNote, owner_user_id: a.id, job_id: ids.job, author: "customer", body: `${tag} kapı kodu` }));
     await must("B customer", admin.from("customers").insert({ id: ids.bCustomer, owner_user_id: b.id, name: `${tag} B müşteri` }));
     await must("B job", admin.from("jobs").insert({ id: ids.bJob, owner_user_id: b.id, customer_id: ids.bCustomer, title: `${tag} B iş` }));
+    await must("B customer note", admin.from("job_notes").insert({ id: ids.bNote, owner_user_id: b.id, job_id: ids.bJob, author: "customer", body: `${tag} B notu` }));
     await must("B shared media", admin.from("job_media").insert({ id: ids.bMedia, owner_user_id: b.id, job_id: ids.bJob, kind: "image", origin: "artisan", visibility: "shared", storage_bucket: "job-images", storage_path: `${b.id}/${ids.bJob}/${ids.bMedia}.jpg`, mime_type: "image/jpeg", size_bytes: jpeg.length }));
 
     // ---- Positive controls: A sees its own rows (otherwise the checks prove nothing) ----
@@ -250,7 +254,7 @@ async function main() {
     expectPermissionDenied("A cannot change job_notes.author", await a.client.from("job_notes").update({ author: "customer" }).eq("id", ids.note));
     expectPermissionDenied("A cannot move a note to another job", await a.client.from("job_notes").update({ job_id: ids.bJob }).eq("id", ids.note));
     const customerNoteAfter = await admin.from("job_notes").select("body").eq("id", ids.customerNote).single();
-    record("the customer's note is unchanged", (customerNoteAfter.data as { body: string } | null)?.body === `${tag} müşteri notu`, JSON.stringify(customerNoteAfter.data));
+    record("the customer's note is unchanged", (customerNoteAfter.data as { body: string } | null)?.body === `${tag} kapı kodu`, JSON.stringify(customerNoteAfter.data));
     const oldColumn = await admin.from("jobs").select("private_note").limit(1);
     record("jobs.private_note no longer exists", Boolean(oldColumn.error), "column still readable");
     expectRefused("A cannot show an estimate-only price", await a.client.from("jobs").update({ agreed_price: null, show_price_to_customer: true }).eq("id", ids.job).select("id"));
@@ -598,6 +602,88 @@ async function main() {
       const withdrawPush = await pushState("request_withdrawn", `withdrawn:${open[0]?.id}`);
       record("withdrawal push processed once, repeat withdraw didn't resend",
         withdrawPush?.length === 1 && ["failed", "skipped"].includes(withdrawPush[0].push_status) && withdrawPush[0].push_attempts === 1, JSON.stringify(withdrawPush));
+      // Customer notes (N.3): add / edit / delete own notes through the link, open jobs only.
+      const noteCall = async (path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown, from: string | null = origin) => {
+        const response = await fetch(`${base}/api/t/${path}`, {
+          method,
+          redirect: "manual",
+          headers: { "Content-Type": "application/json", ...(from ? { Origin: from } : {}) },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        return { status: response.status, headers: response.headers, body: await response.text() };
+      };
+      const customerNoteRows = async () =>
+        ((await admin.from("job_notes").select("id, owner_user_id, body, edited_at").eq("job_id", ids.job).eq("author", "customer").order("created_at")).data ?? []) as
+          { id: string; owner_user_id: string; body: string; edited_at: string | null }[];
+      const noteEvents = async (type: string) =>
+        ((await admin.from("job_events").select("actor_type, payload").eq("job_id", ids.job).eq("event_type", type)).data ?? []) as { actor_type: string; payload: Record<string, unknown> }[];
+      const noteNotifications = async () =>
+        ((await admin.from("notifications").select("payload, read_at, push_attempts").eq("job_id", ids.job).eq("category", "customer_note")).data ?? []) as
+          { payload: { count?: number; action?: string }; read_at: string | null; push_attempts: number }[];
+      const noteText = `${tag} müşteri yazdı`;
+
+      record("notes GET is not allowed", (await get(`/api/t/${current}/notes`)).status === 405, "GET accepted");
+      record("note from a foreign Origin → 403", (await noteCall(`${current}/notes`, "POST", { body: noteText }, "https://evil.example")).status === 403, "accepted");
+      record("note without Origin → 403", (await noteCall(`${current}/notes`, "POST", { body: noteText }, null)).status === 403, "accepted");
+      record("note through the old link → 404", (await noteCall(`${valid}/notes`, "POST", { body: noteText })).status === 404, "accepted");
+      record("note through a tampered link → 404", (await noteCall(`${invalid.tampered}/notes`, "POST", { body: noteText })).status === 404, "accepted");
+      record("empty note → 400", (await noteCall(`${current}/notes`, "POST", { body: "   " })).status === 400, "accepted");
+      record("note over 1000 characters → 400", (await noteCall(`${current}/notes`, "POST", { body: "x".repeat(1001) })).status === 400, "accepted");
+      record("refused notes stored nothing", (await customerNoteRows()).length === 1 && (await noteEvents("note_added")).length === 0, `${(await customerNoteRows()).length} rows`);
+
+      const added = await noteCall(`${current}/notes`, "POST", { body: `  ${noteText}  ` });
+      record("customer adds a note → 200 with no-store", added.status === 200 && /no-store/.test(added.headers.get("cache-control") ?? ""), `status ${added.status} ${added.body.slice(0, 80)}`);
+      const addedRow = (await customerNoteRows()).find((n) => n.body === noteText);
+      record("note row: trimmed, author customer, owned by A", Boolean(addedRow) && addedRow!.owner_user_id === a.id && addedRow!.edited_at === null, JSON.stringify(addedRow));
+      const addedEvents = await noteEvents("note_added");
+      record("note_added event by link_holder, payload without the text",
+        addedEvents.length === 1 && addedEvents[0].actor_type === "link_holder" && JSON.stringify(addedEvents[0].payload) === JSON.stringify({ note_id: addedRow?.id }), JSON.stringify(addedEvents));
+      const notePush = await pushState("customer_note");
+      record("customer_note notification pushed once after the response", notePush?.length === 1 && notePush[0].push_attempts === 1 && notePush[0].push_status !== "none", JSON.stringify(notePush));
+      const notePage = await get(`/t/${current}`);
+      record("customer page shows the customer's notes", notePage.body.includes(noteText) && notePage.body.includes(`${tag} kapı kodu`), "note missing");
+      record("customer page still hides the artisan's note", !notePage.body.includes(`${tag} gizlinot`) && !notePage.body.includes(ids.note), "artisan note visible");
+      expectNoRows("B cannot see A's customer notes", await b.client.from("job_notes").select("id").eq("job_id", ids.job));
+
+      const artisanNoteBefore = (await admin.from("job_notes").select("body").eq("id", ids.note).single()).data as { body: string } | null;
+      record("edit of the artisan's note through the link → 404", (await noteCall(`${current}/notes/${ids.note}`, "PATCH", { body: "hack" })).status === 404, "accepted");
+      record("delete of the artisan's note through the link → 404", (await noteCall(`${current}/notes/${ids.note}`, "DELETE")).status === 404, "accepted");
+      const artisanNoteAfter = (await admin.from("job_notes").select("body").eq("id", ids.note).maybeSingle()).data as { body: string } | null;
+      record("artisan's note untouched", artisanNoteAfter?.body === artisanNoteBefore?.body, JSON.stringify(artisanNoteAfter));
+      record("edit of B's customer note through A's link → 404", (await noteCall(`${current}/notes/${ids.bNote}`, "PATCH", { body: "hack" })).status === 404, "accepted");
+      record("delete of B's customer note through A's link → 404", (await noteCall(`${current}/notes/${ids.bNote}`, "DELETE")).status === 404, "accepted");
+      const bNoteAfter = (await admin.from("job_notes").select("body").eq("id", ids.bNote).maybeSingle()).data as { body: string } | null;
+      record("B's customer note untouched", bNoteAfter?.body === `${tag} B notu`, JSON.stringify(bNoteAfter));
+      record("edit with a malformed id → 404", (await noteCall(`${current}/notes/not-a-uuid`, "PATCH", { body: "x" })).status === 404, "accepted");
+      record("edit from a foreign Origin → 403", (await noteCall(`${current}/notes/${ids.customerNote}`, "PATCH", { body: "x" }, "https://evil.example")).status === 403, "accepted");
+      record("edit through the old link → 404", (await noteCall(`${valid}/notes/${ids.customerNote}`, "PATCH", { body: "x" })).status === 404, "accepted");
+
+      const edited = await noteCall(`${current}/notes/${ids.customerNote}`, "PATCH", { body: `${tag} kapı kodu 4321` });
+      const editedRow = (await customerNoteRows()).find((n) => n.id === ids.customerNote);
+      record("customer edits own note → 200, text changed, edited_at set", edited.status === 200 && editedRow?.body === `${tag} kapı kodu 4321` && Boolean(editedRow?.edited_at), JSON.stringify(editedRow));
+      record("note_updated event by link_holder", (await noteEvents("note_updated")).length === 1, `${(await noteEvents("note_updated")).length} events`);
+      const sameText = await noteCall(`${current}/notes/${ids.customerNote}`, "PATCH", { body: `${tag} kapı kodu 4321` });
+      record("unchanged edit → 200 without a second event", sameText.status === 200 && (await noteEvents("note_updated")).length === 1, "event duplicated");
+      const daily = await noteNotifications();
+      record("same day: one customer_note item, count 2, unread, no second push",
+        daily.length === 1 && daily[0].payload.count === 2 && daily[0].payload.action === "updated" && daily[0].read_at === null && daily[0].push_attempts === 1, JSON.stringify(daily));
+
+      record("delete from a foreign Origin → 403", (await noteCall(`${current}/notes/${addedRow?.id}`, "DELETE", undefined, "https://evil.example")).status === 403, "accepted");
+      const removedNote = await noteCall(`${current}/notes/${addedRow?.id}`, "DELETE");
+      record("customer deletes own note → 200, row gone", removedNote.status === 200 && !(await customerNoteRows()).some((n) => n.id === addedRow?.id), `status ${removedNote.status}`);
+      record("note_deleted event by link_holder", (await noteEvents("note_deleted")).length === 1, `${(await noteEvents("note_deleted")).length} events`);
+      record("repeat delete → 404, no second event", (await noteCall(`${current}/notes/${addedRow?.id}`, "DELETE")).status === 404 && (await noteEvents("note_deleted")).length === 1, "accepted");
+
+      // Limits: ≤ 20 note writes per job per hour, ≤ 20 active customer notes (rows only).
+      const fakeNoteEvents = Array.from({ length: 17 }, () => ({ owner_user_id: a.id, job_id: ids.job, event_type: "note_updated", actor_type: "link_holder", payload: { note_id: ids.customerNote } }));
+      const insertedEvents = await must("fake note events", admin.from("job_events").insert(fakeNoteEvents).select("id"));
+      record("21st note write within an hour → 429", (await noteCall(`${current}/notes`, "POST", { body: "x" })).status === 429, "accepted");
+      await admin.from("job_events").delete().in("id", (insertedEvents as { id: string }[]).map((e) => e.id));
+      const fakeNotes = Array.from({ length: 19 }, (_, i) => ({ owner_user_id: a.id, job_id: ids.job, author: "customer", body: `${tag} dolgu ${i}` }));
+      await must("fake customer notes", admin.from("job_notes").insert(fakeNotes));
+      record("note with 20 active customer notes → 429", (await noteCall(`${current}/notes`, "POST", { body: "x" })).status === 429, "accepted");
+      await admin.from("job_notes").delete().eq("job_id", ids.job).like("body", `${tag} dolgu %`);
+
       // Left open on purpose: the customer cancel below must close it (J6).
       await json(`/api/t/${current}/reschedule`, "POST", { ...ask, time: "12:45" });
 
@@ -651,6 +737,10 @@ async function main() {
       record("cancelled job page offers no cancel button", page2.status === 200 && !page2.body.includes("İşi iptal et"), "button still shown");
       record("upload on a cancelled job → 409", (await upload(current, jpeg)).status === 409, "accepted");
       const live = (await customerRows()).find((r) => !r.deleted_at);
+      record("note on a cancelled job → 409", (await noteCall(`${current}/notes`, "POST", { body: "x" })).status === 409, "accepted");
+      record("note edit on a cancelled job → 409", (await noteCall(`${current}/notes/${ids.customerNote}`, "PATCH", { body: "x" })).status === 409, "accepted");
+      record("note delete on a cancelled job → 409", (await noteCall(`${current}/notes/${ids.customerNote}`, "DELETE")).status === 409, "accepted");
+      record("cancelled job page still shows the customer's note, read-only", page2.body.includes(`${tag} kapı kodu 4321`) && !page2.body.includes("Not ekle"), "not shown or still editable");
       record("customer can still delete own photo on a cancelled job", Boolean(live) && (await remove(current, live!.id)).status === 200, "refused");
 
       // ---- Dispatcher (M5.9): only Supabase Cron with the bearer secret may run it ----
